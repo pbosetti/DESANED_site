@@ -1,0 +1,25 @@
+project:
+  type: website
+  render:
+    - "*.qmd"
+    - "!_*.qmd"
+    
+format:
+  revealjs:
+    width: 1280
+    height: 720
+    margin: 0.1
+    slide-number: true
+    code-line-numbers: true
+    code-annotations: below
+    preview-links: auto
+    theme: [default, slides.scss]
+    chalkboard: true
+    footer: "paolo.bosetti@unitn.it --- [https://paolobosetti.quarto.pub/DESANED](https://paolobosetti.quarto.pub/DESANED)"
+    fig-width: 5
+    fig-height: 4
+    fig-dpi: 300
+    touch: true
+    email-obfuscation: javascript
+    pdf-separate-fragments: true
+    link-external-icon: false

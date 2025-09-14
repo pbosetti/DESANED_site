@@ -1,0 +1,19 @@
+---
+title: "DESANED"
+subtitle: |
+   Design of Experiments and Statistical Analysis of Experimental Data, 2025 \
+   ![](images/by-nc-sa.png){height=30}
+author: "Paolo Bosetti"
+institute: "University of Trento, Department of Industrial Engineering"
+execute:
+   cache: true
+---
+
+
+# Contents
+
+* [Statistics](1-statistics.qmd)
+* [Intro to R language](2-R-intro.qmd)
+* [Regression](3-regression.qmd)
+* [K-fold validation](4-kfold.qmd)
+* [Design of Experiments](5-DoE.qmd)
