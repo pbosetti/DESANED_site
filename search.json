@@ -1,0 +1,1318 @@
+[
+  {
+    "objectID": "4-kfold.html#loading-the-data",
+    "href": "4-kfold.html#loading-the-data",
+    "title": "K-Fold Cross Validation",
+    "section": "Loading the data",
+    "text": "Loading the data\n\n\nWe load some data and make a quick plot\n\nThe relationship seems coarsely proportional\nThere seems to be a flex in the middle\nLet’s try first with a linear model with degree 1"
+  },
+  {
+    "objectID": "4-kfold.html#linear-model-regression",
+    "href": "4-kfold.html#linear-model-regression",
+    "title": "K-Fold Cross Validation",
+    "section": "Linear model regression",
+    "text": "Linear model regression\nThe regression of a linear model is performed with the lm() function. It takes two arguments:\n\na formula, i.e. a description of the regression model\na data table, containing the data set to use for regression. The columns of the data set must have the same names used for the predictors\n\nThe formula is expressed in the formula notation, which is a map from an analytical regression model, as \\(y_i = a + bx_i + cx_i^2 + \\varepsilon_i\\) to a formula object as y~x + I(x^2)"
+  },
+  {
+    "objectID": "4-kfold.html#linear-model-regression-1",
+    "href": "4-kfold.html#linear-model-regression-1",
+    "title": "K-Fold Cross Validation",
+    "section": "Linear model regression",
+    "text": "Linear model regression\nTo build a formula from a model you typically:\n\ndrop the grand average \\(a\\) and the residuals \\(\\varepsilon_i\\)\nwhen you need the power of a term (or any mathematical function applied to a term like a logarithm), you have to protect it with the identity function I()\nif you have more than one predictor, you can combine them as:\n\ny~x1 + x2, which corresponds to \\(y_i = a + bx_{1,i} + cx_{2,1} + \\varepsilon_i\\)\ny~x1 + x2 + x1:x2, which corresponds to \\(y_i = a + bx_{1,i} + cx_{2,1} + dx_{1,i}x_{2,i} +\\varepsilon_i\\)\n\nthe notation y~x1 + x2 + x1:x2 can be abbreviated as y~x1*x2\n\n\n\nTo remove from the model the grand average (called intercept), subtract 1: \\(y_i = bx_i + cx_i^2 + \\varepsilon_i\\) becomes y~x + I(x^2) - 1"
+  },
+  {
+    "objectID": "4-kfold.html#linear-model-regression-2",
+    "href": "4-kfold.html#linear-model-regression-2",
+    "title": "K-Fold Cross Validation",
+    "section": "Linear model regression",
+    "text": "Linear model regression\nSo let’s build a linear model of degree 1 and plot the data with the regression line:\n\n\ndata.lm &lt;-lm(y~x, data=data)\ndata %&gt;% \n  add_predictions(data.lm) %&gt;%\n  ggplot(aes(x=x)) +\n  geom_point(aes(y=y)) +\n  geom_line(aes(y=pred))"
+  },
+  {
+    "objectID": "4-kfold.html#linear-model-regression-3",
+    "href": "4-kfold.html#linear-model-regression-3",
+    "title": "K-Fold Cross Validation",
+    "section": "Linear model regression",
+    "text": "Linear model regression\n\nIt is important to look at the residuals. They show a rather strong pattern, meaning that the linear relationship is underfitting the data\nThus we need to increase the degree of the fitting polynomial. But how much so?\n\n\n\ndata %&gt;% \n  add_residuals(data.lm) %&gt;% \n  ggplot(aes(x=x, y=resid)) +\n  geom_point()"
+  },
+  {
+    "objectID": "4-kfold.html#hyper-parameters",
+    "href": "4-kfold.html#hyper-parameters",
+    "title": "K-Fold Cross Validation",
+    "section": "Hyper-parameters",
+    "text": "Hyper-parameters\nThe degree of the fitting polynomial is a hyper-parameter\n\nRegression parameters are the coefficients of the polynomial, to be calculated typically by minimizing the root mean square of the residuals\nThe degree of the polynomial is a parameter that defines the number of regression parameters, and that is why it is named a hyper-parameter\nIdentifying the best hyper-parameter(s) is the aim of validation and cross-validation strategies"
+  },
+  {
+    "objectID": "4-kfold.html#multiple-regressions",
+    "href": "4-kfold.html#multiple-regressions",
+    "title": "K-Fold Cross Validation",
+    "section": "Multiple regressions",
+    "text": "Multiple regressions\nIn our case we want to compare polynomial fits up to degree 12\nWe use modelr::fit_with() to automate the building of many models together: The function needs two arguments:\n\nthe modeling function, typically lm()\nthe results of a call to formulas(), which in turn takes a list of formulas to be used\n\n\n\nNOTE: The list of formulas needs to have only right hand side formulas, being the first the response variable, the others are the model part combining the predictors"
+  },
+  {
+    "objectID": "4-kfold.html#multiple-regression",
+    "href": "4-kfold.html#multiple-regression",
+    "title": "K-Fold Cross Validation",
+    "section": "Multiple regression",
+    "text": "Multiple regression\nLet’s see how it works. We first build a list linear models with increasing polynomial degrees:\n\nfits &lt;- 1:12 %&gt;% \n  map(\\(deg) lm(y~poly(x, deg, raw=T), data = data))\n\nNow fits is a list or regression results, with polynomials from degree 1 to 12"
+  },
+  {
+    "objectID": "4-kfold.html#quality-of-regression",
+    "href": "4-kfold.html#quality-of-regression",
+    "title": "K-Fold Cross Validation",
+    "section": "Quality of regression",
+    "text": "Quality of regression\nQuality of a regression can be verified with different metrics:\n\n\\(R^2=1-\\frac{\\sum (x_i - \\hat x_i)^2}{\\sum (x_i - \\bar x_i)^2}\\)\n\\(\\mathrm{MSE}=\\frac{\\sum(x_i - \\hat x_i)^2}{N}\\)\n\\(\\mathrm{RMSE}=\\sqrt{\\frac{\\sum(x_i - \\hat x_i)^2}{N}}\\)\n\\(\\mathrm{MAE}=\\frac{\\sum |x_i - \\hat x_i|}{N}\\)\n\\(\\mathrm{MAPE}=\\frac{1}{N}\\sum \\left|\\frac{x_i - \\hat x_i}{x_i}\\right|\\)\n\nTypically, the root means square of error (RMSE) and the mean absolute error (MAE) are the most commonly used metrics"
+  },
+  {
+    "objectID": "4-kfold.html#quality-of-regression-1",
+    "href": "4-kfold.html#quality-of-regression-1",
+    "title": "K-Fold Cross Validation",
+    "section": "Quality of regression",
+    "text": "Quality of regression\nLet’s see how the RMSE and the \\(R^2\\) metrics change when the polynomial degree increases. To do that we build a table with three columns:\n\nthe degree of the polynomial\nthe \\(R^2\\) value\nthe RMSE value\n\nWe extract these data from the list of linear models above created, fits\nFor each fitted linear model (an entry in fits), the \\(R^2\\) and RMSE can be extracted with the functions rsquare() and rmse(), respectively"
+  },
+  {
+    "objectID": "4-kfold.html#quality-of-regression-2",
+    "href": "4-kfold.html#quality-of-regression-2",
+    "title": "K-Fold Cross Validation",
+    "section": "Quality of regression",
+    "text": "Quality of regression\nWe use map_dbl() to map these functions over the list of polynomial degrees. The resulting table is then used to make a plot:\n\ntibble(\n  degree=1:12, # deg starts from 2!\n  rsquare=fits %&gt;% map_dbl(~rsquare(., data)),\n  rmse=fits %&gt;% map_dbl(~rmse(., data))\n) %&gt;% \n  ggplot(aes(x=degree)) +\n  geom_line(aes(y=rmse), color=\"blue\") +\n  geom_line(aes(y=rsquare*4), color=\"red\") +\n  scale_y_continuous(sec.axis = sec_axis(\n    \\(x) scales::rescale(x, from=c(0,4), to=c(0,1)),\n    breaks=seq(0, 1, 0.1),\n    name=\"R squared\"))\n\n\nThe \\(R^2\\) increases pretty quickly and saturates after degree 3. The RMSE decreases sharply and monothonically. It’s hard to figure out the point where overfitting starts"
+  },
+  {
+    "objectID": "4-kfold.html#quality-of-regression-2-output",
+    "href": "4-kfold.html#quality-of-regression-2-output",
+    "title": "K-Fold Cross Validation",
+    "section": "Quality of regression",
+    "text": "Quality of regression"
+  },
+  {
+    "objectID": "4-kfold.html#intro",
+    "href": "4-kfold.html#intro",
+    "title": "K-Fold Cross Validation",
+    "section": "Intro",
+    "text": "Intro\nTo solve the problem we use K-fold cross validation. It is a regression strategy where we split the dataset into \\(k\\) subsets, or folds, with roughly the same amount of observations. Then:\n\nwe train the model over all the folds together except the first fold, and then we validate the model on the first model, i.e. we calculate one or more metrics on the validation data\nwe repeat the previous step setting aside each fold, one at a time, and using it for validation, while the remaining folds are used for training\neach fold is used exactly once for validation, exactly \\(k-1\\) times for training\nwe calculate the overall metrics, by calculating the average of the \\(k\\) metrics evaluated for each validation step, or — equivalently — by appliying the above reported equations to the whole set of validation values"
+  },
+  {
+    "objectID": "4-kfold.html#in-r",
+    "href": "4-kfold.html#in-r",
+    "title": "K-Fold Cross Validation",
+    "section": "In R",
+    "text": "In R\nIn R, we use the caret library to simplify this process. The caret::train() function performs the folding for a given model: it takes as arguments the model formula, the regression function (in our case lm()), the dataset, and a list of parameters that can be created with the supporting trainControl() function.\nThe trainControl() function is used to define the details on the cross validation strategy to use. In our case we use the repeated K-fold cross validation, named \"repeatedcv\", which repeates a K-fold a given number of times."
+  },
+  {
+    "objectID": "4-kfold.html#in-r-1",
+    "href": "4-kfold.html#in-r-1",
+    "title": "K-Fold Cross Validation",
+    "section": "In R",
+    "text": "In R\nIn fact, the folds are defined by randomly sampling the initial dataset, so that the resulting RMSE (or any other metric) is also a random variable. Repeating the K-fold 100 times makes the whole process more robust:\n\nctrl &lt;- trainControl(method = \"repeatedcv\", number=5, repeats=100)\nmodel &lt;- train(y~poly(x,8, raw=TRUE), data=data, method=\"lm\", trControl=ctrl)\n\nmodel\n\nLinear Regression \n\n25 samples\n 1 predictor\n\nNo pre-processing\nResampling: Cross-Validated (5 fold, repeated 100 times) \nSummary of sample sizes: 20, 20, 21, 20, 19, 20, ... \nResampling results:\n\n  RMSE     Rsquared   MAE    \n  10.3213  0.9241026  6.25129\n\nTuning parameter 'intercept' was held constant at a\n value of TRUE"
+  },
+  {
+    "objectID": "4-kfold.html#evaluate-the-results",
+    "href": "4-kfold.html#evaluate-the-results",
+    "title": "K-Fold Cross Validation",
+    "section": "Evaluate the results",
+    "text": "Evaluate the results\nThe model object contains a field named model$results that is a table with all the available performance metrics:\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nintercept\nRMSE\nRsquared\nMAE\nRMSESD\nRsquaredSD\nMAESD\n\n\n\n\nTRUE\n10.3213\n0.9241026\n6.25129\n23.37541\n0.1183862\n12.14192\n\n\n\n\n\nNow we want to repeat the K-fold validation over the list of formulas corresponding to the set of polynomials with degrees from 1 to 12. We use again the map() function:\n\nfit_quality &lt;- tibble(\n  degree=1:12,\n  results=map(degree, function(n) {\n    fm &lt;- paste0(\"y~poly(x,\", n, \", raw=TRUE)\") %&gt;% as.formula()\n    train(fm, data=data, method=\"lm\", trControl=ctrl)$results\n    })\n) %&gt;% \n  unnest(cols=results)\n\n\nNote the unnest() function at the end: the model field $results is actualy a table, so without that function in fit_quality we would get a column results that contains a list of tables. The unnest() function flattens this list of tables in place."
+  },
+  {
+    "objectID": "4-kfold.html#evaluate-the-results-1",
+    "href": "4-kfold.html#evaluate-the-results-1",
+    "title": "K-Fold Cross Validation",
+    "section": "Evaluate the results",
+    "text": "Evaluate the results\nNow we can finally make a plot of the metrics as a function of the polynomial degree:\n\n\nfit_quality %&gt;% \n  select(-intercept, -starts_with(\"Rsquared\")) %&gt;% \n  pivot_longer(-degree, names_to = \"metric\") %&gt;% \n  ggplot(aes(x=degree, y=value, group=metric, color=metric)) + \n  geom_line() +\n  geom_point() +\n  scale_y_log10() +\n  scale_x_continuous(breaks=1:12)"
+  },
+  {
+    "objectID": "4-kfold.html#regression",
+    "href": "4-kfold.html#regression",
+    "title": "K-Fold Cross Validation",
+    "section": "Regression",
+    "text": "Regression\n\n\nFrom the previous plot we observe that the minima of any metric happens at degree 3:\n\nbelow that value we have underfitting\nabove we have overfitting (i.e. the model is loosing generality)\n\nSo we can finally accept the model \\(y_i=a + bx_i + cx_i^2 + dx_i^3 + \\varepsilon_i\\) (a degree 3 polynomial in \\(x_i\\)):\n\n\nRegressionResiduals\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nNOTE: The regression plot also includes 95% confidence intervals"
+  },
+  {
+    "objectID": "2-R-intro.html#useful-links",
+    "href": "2-R-intro.html#useful-links",
+    "title": "Introduction to R language",
+    "section": "Useful links",
+    "text": "Useful links\n\nGNU-R: https://cran.mirror.garr.it/CRAN/\nRStudio: https://posit.co/downloads/\nCheat sheet: https://posit.co/resources/cheatsheets/\nTidyverse: https://tidyverse.org"
+  },
+  {
+    "objectID": "2-R-intro.html#rstudio-environment",
+    "href": "2-R-intro.html#rstudio-environment",
+    "title": "Introduction to R language",
+    "section": "RStudio environment",
+    "text": "RStudio environment\n\nInstallation: first R, then RStudio\nRStudio works on folders or (better) projects (.Rproj)\nA project also contains settings that are specific and common to files in the folder\nAn RStudio session can operate on a single project\nMultiple sessions can be opened at the same time\nRStudio is a very powerful and complex environment, also suitable for compiling technical reports, articles, books and presentations (like this one)\n\n\n\nNote: These slides provide an embedded R environment similar to RStudio, and useful for quiclky try the code here discussed: click on the terminal icon on the bottom left, or just hit the § key."
+  },
+  {
+    "objectID": "2-R-intro.html#the-r-language",
+    "href": "2-R-intro.html#the-r-language",
+    "title": "Introduction to R language",
+    "section": "The R language",
+    "text": "The R language\n\nR is a high-level, declarative, interpreted language with C-like syntax\nR is both a language and an interpreter\nR is a dynamically typed language\nR is used in both script mode and interactive mode\nR began as an open source GNU version of S, a proprietary language for statistical analysis\nRStudio is a proprietary (but free) IDE for R"
+  },
+  {
+    "objectID": "2-R-intro.html#assignments",
+    "href": "2-R-intro.html#assignments",
+    "title": "Introduction to R language",
+    "section": "Assignments",
+    "text": "Assignments\nEvery language uses variables to store values and objects through an assignment operation:\na &lt;- 1\n# but also\nb = 2\n# however arrow notation is preferred,\n# because it also works like this:\n3 -&gt; c\n# to display the value of a variable:\nc\n# in one fell swoop, assignment and display:\n(d &lt;- \"string\")\nExecuting a command directly provides a result:\n\n12*12\n\n[1] 144\n\n\n\n\nNote the text [1] at the beginning of the output line — it will be clear later"
+  },
+  {
+    "objectID": "2-R-intro.html#types-or-native-classes",
+    "href": "2-R-intro.html#types-or-native-classes",
+    "title": "Introduction to R language",
+    "section": "Types, or native classes",
+    "text": "Types, or native classes\n\nR has 6+1 native types or classes\n\ncharacter: \"a\", \"string\", 'my text'\nnumeric: 1, 3.1415\ninteger: 1L\nlogical: TRUE, FALSE (or T and F)\ncomplex: 1+4i\nfunction: a function\n(raw: bit sequence)\n\nEach instance is intrinsically a vector\nA scalar is simply a vector of length 1"
+  },
+  {
+    "objectID": "2-R-intro.html#special-values",
+    "href": "2-R-intro.html#special-values",
+    "title": "Introduction to R language",
+    "section": "Special values",
+    "text": "Special values\n\nThe following special values are defined:\n\nNA: missing value\nNULL: nothing\nInf: Infinite\nNaN: Not a Number (example 0/0)"
+  },
+  {
+    "objectID": "2-R-intro.html#coercion",
+    "href": "2-R-intro.html#coercion",
+    "title": "Introduction to R language",
+    "section": "Coercion",
+    "text": "Coercion\n\nWhen mixing different types, e.g. into a vector, R transforms them into a common type:\n\n\nc(1L, 7, \"2\")\n\n[1] \"1\" \"7\" \"2\"\n\nc(T, 0)\n\n[1] 1 0\n\nas.numeric(c(\"a\", \"1\"))\n\n[1] NA  1\n\nas.character(c(1, 1.7))\n\n[1] \"1\"   \"1.7\""
+  },
+  {
+    "objectID": "2-R-intro.html#vectors",
+    "href": "2-R-intro.html#vectors",
+    "title": "Introduction to R language",
+    "section": "Vectors",
+    "text": "Vectors\n# They are constructed with the c() operator/function:\nv1 &lt;- c(10, 2, 7.5, 3)\n# or with a sequence:\nv2 &lt;- 1:10\n# also with specified pitch:\nv3 &lt;- seq(1, 10, 0.5)\n# Functions are called with parentheses,\n# separating arguments with ,\nNote the output for v3 in this case:\n\n\n [1]  1.0  1.5  2.0  2.5  3.0  3.5  4.0  4.5  5.0  5.5  6.0\n[12]  6.5  7.0  7.5  8.0  8.5  9.0  9.5 10.0\n\n\nThe first element of the first row is the [1] element of the vector, while the first element of the second row is the [12] element. In all, the vector v3 has 19 elements"
+  },
+  {
+    "objectID": "2-R-intro.html#vectors-1",
+    "href": "2-R-intro.html#vectors-1",
+    "title": "Introduction to R language",
+    "section": "Vectors",
+    "text": "Vectors\nVariables are natively vectors. Scalars are just vectors of dimension 1:\n\na &lt;- 10\nlength(a)\n\n[1] 1\n\nlength(v3)\n\n[1] 19\n\n\nFunctions therefore always act on vectors:\n\na * 2\n\n[1] 20\n\nv3 + 2\n\n [1]  3.0  3.5  4.0  4.5  5.0  5.5  6.0  6.5  7.0  7.5  8.0\n[12]  8.5  9.0  9.5 10.0 10.5 11.0 11.5 12.0"
+  },
+  {
+    "objectID": "2-R-intro.html#introspection",
+    "href": "2-R-intro.html#introspection",
+    "title": "Introduction to R language",
+    "section": "Introspection",
+    "text": "Introspection\n\nUseful functions for inspecting objects:\n\nmode(): storage mode\nclass(): class (high level, same as mode() for basic types)\ntypeof(): type (low level)\nlength(): vector length\nattributes(): metadata"
+  },
+  {
+    "objectID": "2-R-intro.html#matrices",
+    "href": "2-R-intro.html#matrices",
+    "title": "Introduction to R language",
+    "section": "Matrices",
+    "text": "Matrices\n\nThey are constructed with the matrix() function\n\n(m1 &lt;- matrix(1:10, 2, 5))\n\nthe array() function constructs n-dimensional arrays\nA matrix is a vector with dim attribute:\n\nattr(m1, \"dim\")\nv &lt;- 1:4\nattr(v, \"dim\") &lt;- c(2,2) # is equivalent to dim(m) &lt;- c(2,2)\nv"
+  },
+  {
+    "objectID": "2-R-intro.html#factors",
+    "href": "2-R-intro.html#factors",
+    "title": "Introduction to R language",
+    "section": "Factors",
+    "text": "Factors\n\nAn additional (non-base) but very common class is factor\nRepresents categorical variables (ordered or unordered)\n\n\n(vf &lt;- factor(LETTERS[1:5], levels=LETTERS[c(2, 1, 3, 5, 4)], ordered=T))\n\n[1] A B C D E\nLevels: B &lt; A &lt; C &lt; E &lt; D\n\nclass(vf)\n\n[1] \"ordered\" \"factor\" \n\ntypeof(vf)\n\n[1] \"integer\"\n\nvf[1] &lt; vf[3]\n\n[1] TRUE"
+  },
+  {
+    "objectID": "2-R-intro.html#strings",
+    "href": "2-R-intro.html#strings",
+    "title": "Introduction to R language",
+    "section": "Strings",
+    "text": "Strings\nA string can be thought of as an array of characters with a length greater than 1.\nThe most common string manipulation functions are cat(), paste(), and paste0(). The first is used to print the string as it is:\n\ncat(\"Hello!\")\n\nHello!\n\n\nThe two functions paste() and paste0() are used to join two or more strings, the first inserting a space in between, the second without space:\n\npaste(\"Hello,\", \"World!\")\n\n[1] \"Hello, World!\"\n\npaste0(\"Hello,\", \"World!\")\n\n[1] \"Hello,World!\""
+  },
+  {
+    "objectID": "2-R-intro.html#indexing",
+    "href": "2-R-intro.html#indexing",
+    "title": "Introduction to R language",
+    "section": "Indexing",
+    "text": "Indexing\n\nR’s indexing syntax is very flexible and powerful\nas for vectors, square brackets [r,c] are used, the base is 1\nif an index is missing, it means “all rows|columns”\n\n\nv3[3]\n\n[1] 2\n\nm1[1,1]\n\n[1] 1\n\nm1[2,]\n\n[1]  2  4  6  8 10\n\nm1[,]\n\n     [,1] [,2] [,3] [,4] [,5]\n[1,]    1    3    5    7    9\n[2,]    2    4    6    8   10"
+  },
+  {
+    "objectID": "2-R-intro.html#indexing-1",
+    "href": "2-R-intro.html#indexing-1",
+    "title": "Introduction to R language",
+    "section": "Indexing",
+    "text": "Indexing\n\nAn index can also be a vector of positions or a vector of Boolean values\n\n\nv1[c(2,4,1)] # extracts only elements 2, 4, and 1\n\n[1]  2  3 10\n\nv2[v2 %% 2 == 0] # extract elements divisible by 2\n\n[1]  2  4  6  8 10\n\n\nThe second case works thanks to the modulus operator:\n\nv2 %% 2 == 0 # modulus operator (remainder)\n\n [1] FALSE  TRUE FALSE  TRUE FALSE  TRUE FALSE  TRUE FALSE\n[10]  TRUE\n\n\n\n\nNote: TRUE and FALSE can be abbreviated to T and F"
+  },
+  {
+    "objectID": "2-R-intro.html#functions",
+    "href": "2-R-intro.html#functions",
+    "title": "Introduction to R language",
+    "section": "Functions",
+    "text": "Functions\n\nFunctions are first class objects, that is, they are valid types\ncan be assigned to variables and passed to other functions\n\n\nmy_fun &lt;- function(x) x^2\nmy_fun(1:5)\n\n[1]  1  4  9 16 25\n\nyour_fun &lt;- my_fun\nyour_fun(6)\n\n[1] 36\n\nmy_apply &lt;- function(x, f) f(x)\nmy_apply(10, my_fun)\n\n[1] 100\n\n\n\nIf the definition requires multiple lines, a block is used between {}\nEach function always returns the last evaluated expression\nOr explicitly via return()"
+  },
+  {
+    "objectID": "2-R-intro.html#arrow-functions-replacement-functions",
+    "href": "2-R-intro.html#arrow-functions-replacement-functions",
+    "title": "Introduction to R language",
+    "section": "Arrow functions (replacement functions)",
+    "text": "Arrow functions (replacement functions)\n\nWe’ve seen things like dim(v) &lt;- c(2,3): how do you declare them?\n\n\n`pwr&lt;-` &lt;- function(obj, value) obj ** value\na &lt;- 2\npwr(a) &lt;- 10\na\n\n[1] 1024\n\n\n\nThe last argument must be called value and represents the right side of the assignment!"
+  },
+  {
+    "objectID": "2-R-intro.html#flow-control",
+    "href": "2-R-intro.html#flow-control",
+    "title": "Introduction to R language",
+    "section": "Flow control",
+    "text": "Flow control\nR supports typical flow control instructions\n\nfor conditional statements:\n\nif(cond) expr\nif(cond) true.expr else false.expr\niffelse(cond, true.expr, false.expr)\n\nand for cycles:\n\nfor(var in seq) expr\nwhile(cond) expr\nrepeat expr\nbreak\nnext"
+  },
+  {
+    "objectID": "2-R-intro.html#function-arguments",
+    "href": "2-R-intro.html#function-arguments",
+    "title": "Introduction to R language",
+    "section": "Function arguments",
+    "text": "Function arguments\n\nTopics can be indicated by position or name\nNamed topics can appear in any order\nArguments may have a default, in which case they are optional\n\n\nf &lt;- function(x, y, n=10, test=F) {\n   ifelse(test, 0, x^y + n)\n}\nf(2, 10)\n\n[1] 1034\n\nf(test=F, y=10, x=2)\n\n[1] 1034\n\nf(test=T)\n\n[1] 0"
+  },
+  {
+    "objectID": "2-R-intro.html#difference-between---and",
+    "href": "2-R-intro.html#difference-between---and",
+    "title": "Introduction to R language",
+    "section": "Difference between <- and =",
+    "text": "Difference between &lt;- and =\n\nThe = operator as an assignment is valid only at the top-level\nThe &lt;- operator is valid everywhere, even as a function argument:\n\n\nsystem.time(m &lt;- mean(1:1E6))\n\n   user  system elapsed \n  0.001   0.000   0.001 \n\nm\n\n[1] 500000.5"
+  },
+  {
+    "objectID": "2-R-intro.html#dataframes",
+    "href": "2-R-intro.html#dataframes",
+    "title": "Introduction to R language",
+    "section": "Dataframes",
+    "text": "Dataframes\n\nIn R, dataframes are used rather than matrices\nThese are tables organized by columns, internally homogeneous but potentially of different types\n\n\ndf &lt;- data.frame(A=1:10, B=letters[1:10])\nhead(df)\n\n  A B\n1 1 a\n2 2 b\n3 3 c\n4 4 d\n5 5 e\n6 6 f"
+  },
+  {
+    "objectID": "2-R-intro.html#dataframes-1",
+    "href": "2-R-intro.html#dataframes-1",
+    "title": "Introduction to R language",
+    "section": "Dataframes",
+    "text": "Dataframes\n\nA dataframe can be indexed as an array (two indices)\nOr by selecting a column with the notation $\n\n\ndf[2,2]\n\n[1] \"b\"\n\ndf$B[2]\n\n[1] \"b\"\n\n\nAlso in assignment:\n\ndf$C &lt;- LETTERS[1:10]\nhead(df, 3)\n\n  A B C\n1 1 a A\n2 2 b B\n3 3 c C"
+  },
+  {
+    "objectID": "2-R-intro.html#lists",
+    "href": "2-R-intro.html#lists",
+    "title": "Introduction to R language",
+    "section": "Lists",
+    "text": "Lists\nA list is a sequence of key-value pairs, that is, a sequence of values identified by a name, or key.\nUnlike vectors (which are always homogeneous) they can contain heterogeneous values.\n\n(l &lt;- list(A=\"one\", B=\"two\", C=1:4))\n\n$A\n[1] \"one\"\n\n$B\n[1] \"two\"\n\n$C\n[1] 1 2 3 4\n\n\nA list can be indexed in three ways:\n\nwith the $ operator: extracts a single element by name\nwith the [] operator: extract elements by position and obtain a list\nwith the [[]] operator: extracts a single element per position"
+  },
+  {
+    "objectID": "2-R-intro.html#commonly-used-algorithms",
+    "href": "2-R-intro.html#commonly-used-algorithms",
+    "title": "Introduction to R language",
+    "section": "Commonly used algorithms",
+    "text": "Commonly used algorithms\n\nSorting: sort, rev, order\nSampling: sample, expand.grid\nAggregation: by, aggregate\nContingency tables: table"
+  },
+  {
+    "objectID": "2-R-intro.html#sorting-vectors",
+    "href": "2-R-intro.html#sorting-vectors",
+    "title": "Introduction to R language",
+    "section": "Sorting vectors",
+    "text": "Sorting vectors\nTo sort a vector you use the sort function:\n\nv &lt;- runif(5, 1, 10)\nsort(v)\n\n[1] 3.389578 4.349115 6.155680 9.070275 9.173870\n\nrev(sort(v))\n\n[1] 9.173870 9.070275 6.155680 4.349115 3.389578\n\nsort(v, decreasing = T)\n\n[1] 9.173870 9.070275 6.155680 4.349115 3.389578"
+  },
+  {
+    "objectID": "2-R-intro.html#sorting-dataframes",
+    "href": "2-R-intro.html#sorting-dataframes",
+    "title": "Introduction to R language",
+    "section": "Sorting dataframes",
+    "text": "Sorting dataframes\nTo reorder a data frame, the ordered indices are extracted:\n\ndf &lt;- data.frame(A=1:5, B=runif(5))\ndf[order(df$B),]\n\n  A         B\n1 1 0.2016819\n5 5 0.6291140\n4 4 0.6607978\n2 2 0.8983897\n3 3 0.9446753\n\n\nThe order function returns the indices of a vector ordered according to the values:\n\norder(df$B)\n\n[1] 1 5 4 2 3\n\n\nwhere the first is the index of the smallest value of df$B and the last is the index of the largest"
+  },
+  {
+    "objectID": "2-R-intro.html#sampling",
+    "href": "2-R-intro.html#sampling",
+    "title": "Introduction to R language",
+    "section": "Sampling",
+    "text": "Sampling\nSampling a set of data (a vector) means extracting a subset (called sample) of values randomly. This is done with the sample function:\n\nsample(1:10) # without reinsertion\n\n [1]  2  3  1  5  7 10  6  4  9  8\n\nsample(1:10, replace = T) # with reinsertion\n\n [1]  9  5  5  9  9  5  5  2 10  9\n\n\nThe sample size can be equal (case above) or smaller than the initial set:\n\nsample(1:10, size = 5)\n\n[1] 1 4 3 6 2\n\nsample(10) # random integer generation without repetition\n\n [1] 10  6  7  4  8  9  2  1  3  5"
+  },
+  {
+    "objectID": "2-R-intro.html#grids",
+    "href": "2-R-intro.html#grids",
+    "title": "Introduction to R language",
+    "section": "Grids",
+    "text": "Grids\nA grid is a matrix that contains all (ordered) combinations between \\(n\\) vectors of possibly different sizes. In R it is represented as a data frame and constructed with the expand.grid function:\n\n(df &lt;- expand.grid(A=1:2, B=c(\"-\", \"+\"), D=c(\"a\", \"b\", \"c\")))\n\n   A B D\n1  1 - a\n2  2 - a\n3  1 + a\n4  2 + a\n5  1 - b\n6  2 - b\n7  1 + b\n8  2 + b\n9  1 - c\n10 2 - c\n11 1 + c\n12 2 + c"
+  },
+  {
+    "objectID": "2-R-intro.html#aggregation",
+    "href": "2-R-intro.html#aggregation",
+    "title": "Introduction to R language",
+    "section": "Aggregation",
+    "text": "Aggregation\nAggregation means grouping rows having common elements in a data frame and applying a given function to each group. It is useful for example for calculating sub-totals.\nIn R it can be done using the by function or the aggregate function (changes the output type):\n\nby(df$A, INDICES = df$B, FUN=sum)\n\ndf$B: -\n[1] 9\n--------------------------------------------- \ndf$B: +\n[1] 9\n\naggregate(A~B, data = df, FUN = sum)\n\n  B A\n1 - 9\n2 + 9"
+  },
+  {
+    "objectID": "2-R-intro.html#contingency-tables",
+    "href": "2-R-intro.html#contingency-tables",
+    "title": "Introduction to R language",
+    "section": "Contingency tables",
+    "text": "Contingency tables\nA contingency table counts the occurrences between a pair of columns in a data frame:\n\nhead(airquality, n = 3)\n\n  Ozone Solar.R Wind Temp Month Day\n1    41     190  7.4   67     5   1\n2    36     118  8.0   72     5   2\n3    12     149 12.6   74     5   3\n\nwith(airquality, table(OzHi = Ozone &gt; 80, Month,\n                        useNA = \"ifany\"))\n\n       Month\nOzHi     5  6  7  8  9\n  FALSE 25  9 20 19 27\n  TRUE   1  0  6  7  2\n  &lt;NA&gt;   5 21  5  5  1\n\n\nNOTE: with() is to save you from typing airquality$Ozone and airquality$Month"
+  },
+  {
+    "objectID": "2-R-intro.html#contingency-tables-1",
+    "href": "2-R-intro.html#contingency-tables-1",
+    "title": "Introduction to R language",
+    "section": "Contingency tables",
+    "text": "Contingency tables\n\nAlso useful is tapply(), which operates on a table similarly to aggregate functions:\n\n\nround(with(airquality,\n            tapply(Ozone, Month, mean, na.rm=T)), 1)\n\n   5    6    7    8    9 \n23.6 29.4 59.1 60.0 31.4 \n\n\nWith aggregate() you would do:\n\naggregate(Ozone~Month, data=airquality, FUN=mean, ra.rm=T)\n\n  Month    Ozone\n1     5 23.61538\n2     6 29.44444\n3     7 59.11538\n4     8 59.96154\n5     9 31.44828"
+  },
+  {
+    "objectID": "2-R-intro.html#inputoutput-to-file",
+    "href": "2-R-intro.html#inputoutput-to-file",
+    "title": "Introduction to R language",
+    "section": "Input/output to file",
+    "text": "Input/output to file\nSince statistics generally deals with large quantities of data, it is essential to be able to import and export data in generic formats.\nData is generally presented in tabular form (by rows and columns)\nThe simplest and most common formats are:\n\nFlat File: an ASCII text file containing row and column values; columns can be separated\n\nfixed length\nusing separator characters\n\nCSV (Comma-Separated Values): a special version of FF where column fields are separated by commas"
+  },
+  {
+    "objectID": "2-R-intro.html#input-from-file",
+    "href": "2-R-intro.html#input-from-file",
+    "title": "Introduction to R language",
+    "section": "Input from file",
+    "text": "Input from file\nA flat file with fields separated by spaces can look like this:\n# Data collected on 8/10/2023\nx y z\n1.2 3.7 2.7\n2.1 2.5 3.9\n3.8 2.2 6.8\nSuch a file can be imported as a data frame like this:\ndf &lt;- read.table(\"data_file.txt\", header=T, sep=\" \", comment.char=\"#\")\nThe read.table() function has numerous options that allow you to handle all possible cases in which files contain fields separated by specific characters (spaces or other)"
+  },
+  {
+    "objectID": "2-R-intro.html#input-from-file-1",
+    "href": "2-R-intro.html#input-from-file-1",
+    "title": "Introduction to R language",
+    "section": "Input from file",
+    "text": "Input from file\nA flat file with fixed width fields can look like this:\n# Data collected on 8/10/2023\nx y z\n1.2 3.7 2.7\n2.1 2.5 3.9\n3.8 2.2 6.8\nSuch a file can be imported as a data frame like this:\ndf &lt;- read.fwf(\"data_file.txt\", widths=5, header=T, skip=1)\nThe skip=1 parameter requires skipping the first line (comment)"
+  },
+  {
+    "objectID": "2-R-intro.html#input-from-csv-file",
+    "href": "2-R-intro.html#input-from-csv-file",
+    "title": "Introduction to R language",
+    "section": "Input from CSV file",
+    "text": "Input from CSV file\nCSV files are special FFs where the field separator is the comma. In these cases we use the read.csv() function which works similarly to read.table() but does not require specifying the separator.\nA CSV looks like this:\n# Data collected on 8/10/2023\nx,y,z\n1.2,3.7,2.7\n2.1,2.5,3.9\n3.8,2.2,6.8\nSoftware that uses Latin languages (Italian, Spanish, Portuguese and French) adopts the comma as decimal separator. Consequently, when these software (e.g. MS Excel) generate CSVs they use the semicolon as a field separator.\nIn this case from R it is necessary to use the read.csv2() function, which takes the comma as decimal separator and the semicolon as field separator."
+  },
+  {
+    "objectID": "2-R-intro.html#output-to-file",
+    "href": "2-R-intro.html#output-to-file",
+    "title": "Introduction to R language",
+    "section": "Output to file",
+    "text": "Output to file\nThe opposite of importing a file to a data frame is exporting a data frame to a file.\nThis operation is performed with the opposite functions to the previous ones:\n\nwrite.table()\nwrite.fwf()\nwrite.csv() and write.csv2()\n\nAll these functions have two mandatory arguments: the data frame to save and the destination file:\nwrite.csv(df, \"data.csv\")\nOther optional arguments are used to customize the result."
+  },
+  {
+    "objectID": "2-R-intro.html#tidyverse",
+    "href": "2-R-intro.html#tidyverse",
+    "title": "Introduction to R language",
+    "section": "Tidyverse",
+    "text": "Tidyverse\nAlong with RStudio, a new wave of R libraries has emerged that radically changes the approach. They go by the collective name of tidyverse\n\nggplot2: plots\npurrr: functional programming\ndplyr: data manipulation\nstringr: string manipulation"
+  },
+  {
+    "objectID": "2-R-intro.html#tidyverse-1",
+    "href": "2-R-intro.html#tidyverse-1",
+    "title": "Introduction to R language",
+    "section": "Tidyverse",
+    "text": "Tidyverse\nAlong with RStudio, a new wave of R libraries has emerged that radically changes the approach. They go by the collective name of tidyverse\n\ntibble: Improved data frames\nreadr: import data\ntidyr: data preparation\nlubridate: date manipulation"
+  },
+  {
+    "objectID": "2-R-intro.html#tidyverse-2",
+    "href": "2-R-intro.html#tidyverse-2",
+    "title": "Introduction to R language",
+    "section": "Tidyverse",
+    "text": "Tidyverse\nThe tidyverse approach has some common characteristics:\n\ndata in tidy format (one observation per row, one variable, or observing, per column)\ncomposition of graph functions with + (ggplot(...) + geom_line()), each function is a layer\nprefix notation with %&gt;% (a %&gt;% str() instead of str(a))\n\nIt is useful to consult the cheat sheets: https://posit.co/resources/cheatsheets/"
+  },
+  {
+    "objectID": "2-R-intro.html#infix-notation",
+    "href": "2-R-intro.html#infix-notation",
+    "title": "Introduction to R language",
+    "section": "Infix notation",
+    "text": "Infix notation\n# I create the histogram of a sample of 10 elements from 100 random numbers\n# infix:\nhist(sample(rnorm(100), 10))\nHardly readable, the first step of the algorithm is the internal one"
+  },
+  {
+    "objectID": "2-R-intro.html#infix-notation-sequenced",
+    "href": "2-R-intro.html#infix-notation-sequenced",
+    "title": "Introduction to R language",
+    "section": "Infix notation, sequenced",
+    "text": "Infix notation, sequenced\n# I create the histogram of a sample of 10 elements from 100 random numbers\n# infix:\nhist(sample(rnorm(100), 10))\n\n# sequenced infix:\ns &lt;- rnorm(100)\nc &lt;- sample(s, 10)\nhist(c)\nMore readable, the algorithm is more obvious, but requires the creation of intermediate variables"
+  },
+  {
+    "objectID": "2-R-intro.html#prefix-notation",
+    "href": "2-R-intro.html#prefix-notation",
+    "title": "Introduction to R language",
+    "section": "Prefix notation",
+    "text": "Prefix notation\n# I create the histogram of a sample of 10 elements from 100 random numbers\n# infix:\nhist(sample(rnorm(100), 10))\n\n# sequenced infix:\ns &lt;- rnorm(100)\nc &lt;- sample(s, 10)\nhist(c)\n\n# prefix with pipe:\nrnorm(100) %&gt;% sample(10) %&gt;% hist()\nMuch more readable, the sequential algorithm is obvious, no intermediate variables are needed"
+  },
+  {
+    "objectID": "2-R-intro.html#prefix-notation-1",
+    "href": "2-R-intro.html#prefix-notation-1",
+    "title": "Introduction to R language",
+    "section": "Prefix notation",
+    "text": "Prefix notation\n# I create the histogram of a sample of 10 elements from 100 random numbers\n# infix:\nhist(sample(rnorm(100), 10))\n\n# sequenced infix:\ns &lt;- rnorm(100)\nc &lt;- sample(s, 10)\nhist(c)\n\n# prefix with pipe:\nrnorm(100) %&gt;% sample(10) %&gt;% hist()\n\n# even on multiple lines:\nrnorm(100) %&gt;%\n1   sample(10) %&gt;%\n2   hist\n\n1\n\nthe lines following the first must be indented\n\n2\n\nonly when using pipe, if there are no arguments the parentheses are optional"
+  },
+  {
+    "objectID": "1-statistics.html#random-or-stochastic-variables",
+    "href": "1-statistics.html#random-or-stochastic-variables",
+    "title": "Intro to Statistics",
+    "section": "Random (or stochastic) variables",
+    "text": "Random (or stochastic) variables\nA stochastic variable is a variable that takes on random values at each observation, i.e. such that it is not possible to predict the exact value of the next observation, not even knowing the previous observations\n\nmeasurement is the process that leads to the objective evaluation of the measurand. The result of a measurement is called measure\n\n\nStochastic variables are of particular interest for engineering and industry in general, given that each measurement produces, as a result, a value that has a random content and can therefore be represented as a stochastic variable\n\n\nIn turn, the random contribution to a measurement is called uncertainty\n\n\nGiven that every production activity is inextricably linked to measurements, it is therefore clear how fundamental it is to treat random contributions to measurements in a coherent and robust manner"
+  },
+  {
+    "objectID": "1-statistics.html#scale-effect",
+    "href": "1-statistics.html#scale-effect",
+    "title": "Intro to Statistics",
+    "section": "Scale effect",
+    "text": "Scale effect"
+  },
+  {
+    "objectID": "1-statistics.html#scale-effect-1",
+    "href": "1-statistics.html#scale-effect-1",
+    "title": "Intro to Statistics",
+    "section": "Scale effect",
+    "text": "Scale effect"
+  },
+  {
+    "objectID": "1-statistics.html#scale-effect-2",
+    "href": "1-statistics.html#scale-effect-2",
+    "title": "Intro to Statistics",
+    "section": "Scale effect",
+    "text": "Scale effect\nIn other words, the stochastic component of a measurement is affected by a scale effect: the smaller the ratio between the average value measured and the variability typical of the instrument (i.e. its precision), the less appreciable the random effect will be\nIt is therefore essential to precisely and effectively define intuitive concepts such as variability and average value that we have expressed above"
+  },
+  {
+    "objectID": "1-statistics.html#populations",
+    "href": "1-statistics.html#populations",
+    "title": "Intro to Statistics",
+    "section": "Populations",
+    "text": "Populations\nIn statistics, a population is a set of values, objects or events of interest for some analysis or experiment.\nTo study the height of residents in the city of Trento, the population of interest is the entire population of Trento.\nTo study the mechanical behavior of the aluminum alloy produced by a certain plant, the population of interest can be the entire quantity of alloy produced by a certain batch of raw material\nBut to also study the effects of variability in raw materials (between one batch and another), environmental conditions, etc., it would be more appropriate to define a larger set as a population\nTherefore, the definition of the population of interest is often arbitrary"
+  },
+  {
+    "objectID": "1-statistics.html#populations-1",
+    "href": "1-statistics.html#populations-1",
+    "title": "Intro to Statistics",
+    "section": "Populations",
+    "text": "Populations\nSo:\n\nthe definition of the population depends on the objective of the analysis\nthe size of a population is generally very large and potentially not limited\nconsequently it is often impractical to consider the entire population\nwe then work on subsets randomly extracted from the population, called samples\nbeing randomly drawn, the samples approximate the population, the more numerous they are, the better"
+  },
+  {
+    "objectID": "1-statistics.html#population",
+    "href": "1-statistics.html#population",
+    "title": "Intro to Statistics",
+    "section": "Population",
+    "text": "Population\nBy observing a population we can identify a central value and a variability"
+  },
+  {
+    "objectID": "1-statistics.html#moments-of-a-population",
+    "href": "1-statistics.html#moments-of-a-population",
+    "title": "Intro to Statistics",
+    "section": "Moments of a population",
+    "text": "Moments of a population\nThe central value is called expected value and the variability is called variance\n\nExpected value:\n\nfor discrete r.v.: \\(\\mu = E(x) := \\sum_{i = 1}^N x_i p(x_i)\\)\nfor continuous r.v.: \\(\\mu = E(x) := \\int_{-\\infty}^{+\\infty} x f(x)~\\mathrm{d}x\\)\n\nVariance:\n\nfor discrete r.v.: \\(\\sigma^2 = V(x) := \\sum_{i = 1}^N (x_i -\\mu)^2 p(x_i)\\)\nfor continuous r.v.: \\(\\sigma^2 = V(x) := \\int_{-\\infty}^{+\\infty} (x - \\mu)^2 f(x)~\\mathrm{d}x\\)\n\n\nwhere \\(E()\\) and \\(V()\\) are the expected value and variance operators, respectively; \\(x_i\\) (and \\(x\\)) is the generic observation of the r.v., and \\(p(x_i)\\) and \\(f(x)\\) are the probability and probability density of finding a given value\nThe properties of a population are indicated with Greek letters: \\(\\mu\\) and \\(\\sigma^2\\)\nNOTE: This results in \\(\\sigma^2 = E\\left[(x-\\mu)^2\\right]\\)"
+  },
+  {
+    "objectID": "1-statistics.html#probability-and-probability-density",
+    "href": "1-statistics.html#probability-and-probability-density",
+    "title": "Intro to Statistics",
+    "section": "Probability and probability density",
+    "text": "Probability and probability density\n\nProbability (or frequency): for a discrete r.v., corresponds to the ratio between the number of observations of a given value and the total number of observations\nProbability density: for a continuous r.v., the probability of exactly finding a given value is zero, therefore we are referring to a probability of finding a value within a given interval. The probability density is the derivative of this value\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nCumulative probability (Cumulated Distribution Function): \\(p(x_0) = P(x\\leq x_0)\\)\nProbability Density (Probability Density Function): \\(f(x) = \\frac{d}{dx} p(x)\\)\nAlso valid is \\(p(x_0) = \\int_{-\\infty}^{x_0}f(x) \\mathrm d x\\)"
+  },
+  {
+    "objectID": "1-statistics.html#probability-and-probability-density-1",
+    "href": "1-statistics.html#probability-and-probability-density-1",
+    "title": "Intro to Statistics",
+    "section": "Probability and probability density",
+    "text": "Probability and probability density\nAlso, note that probability and frequency must add to 1: respectively: \\[\n\\begin{array}{l} \\sum_i p(x_i) = 1 \\\\\n\\int_{-\\infty}^\\infty f(x)~\\mathrm{d}x = 1 \\end{array}\n\\]\nThis is because obviously the probability of finding any value must be certain, i.e. 1"
+  },
+  {
+    "objectID": "1-statistics.html#operator-properties",
+    "href": "1-statistics.html#operator-properties",
+    "title": "Intro to Statistics",
+    "section": "Operator properties",
+    "text": "Operator properties\nThe expected value and variance operators have the following properties:\n\\[\n\\begin{array}{l}\nE(c)&=&c\\\\\nE(x)&=&\\mu\\\\\nE(cx)&=&cE(x)=c\\mu\\\\\nV(c)&=&0\\\\\nV(x)&=&\\sigma^2\\\\\nV(cx)&=&c^2V(x)=c^2\\sigma^2\\\\\nE(x+y)&=&E(x)+E(y)=\\mu_x+\\mu_y\\\\\n\\mathrm{Cov}(x,y)&=&E[(x-\\mu_x)(y-\\mu_y)] \\label{eq:cov}\\\\\nV(x+y)&=&V(x)+V(y)+2\\textrm{ Cov}(x,y)\\\\\nV(x-y)&=&V(x)+V(y)-2\\textrm{ Cov}(x,y)\n\\end{array}\n\\]\nwhere \\(c\\) indicates a constant"
+  },
+  {
+    "objectID": "1-statistics.html#correlation-and-covariance",
+    "href": "1-statistics.html#correlation-and-covariance",
+    "title": "Intro to Statistics",
+    "section": "Correlation and covariance",
+    "text": "Correlation and covariance\nThe covariance operator is an index of how interdependent two stochastic variables are\nMore useful than covariance (which is not limited) is correlation which has the advantage of being within the range \\([-1,1]\\):\n\\[\n\\mathrm{Corr}(x, y) = \\frac{E[(x-\\mu_x)(y-\\mu_y)]}{\\sigma_x\\sigma_y} = \\frac{\\mathrm{Cov}(x,y) }{\\sigma_x\\sigma_y}\n\\]\n\nclose to zero means no correlation\nclose to 1 means strong positive correlation (if \\(x\\) increases, \\(y\\) also increases)\nclose to -1 means strong negative correlation (if \\(x\\) increases, \\(y\\) decreases).\n\nCovariance and correlation are also referred to as \\(\\sigma_{xy}^2\\) and \\(\\rho_{xy}\\), respectively."
+  },
+  {
+    "objectID": "1-statistics.html#samples",
+    "href": "1-statistics.html#samples",
+    "title": "Intro to Statistics",
+    "section": "Samples",
+    "text": "Samples\nA population may be too large to be analyzed directly\nThen we analyze the subsets obtained by sampling, i.e. random extraction\nRandomly drawing a large enough sample does not alter the distribution properties of the population\nFrom a population of \\(N\\) elements it is possible to extract a number of different samples of size \\(n\\) described by the binomial coefficient: \\[\\binom{N}{n}=\\frac{N! }{(N-n)!n!},~N&gt;n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#estimators",
+    "href": "1-statistics.html#estimators",
+    "title": "Intro to Statistics",
+    "section": "Estimators",
+    "text": "Estimators\nFor each property of the population it is possible to define an estimator, or statistic, built on the sample\nSample mean and variance are defined\n\\[\n\\begin{eqnarray} \\bar x &=& \\frac{1}{n}\\sum_{i=1}^n x_i\\\\\nS^2 &=& \\frac{\\sum_{i=1}^n (x_i - \\bar x)^2}{n-1}\n\\end{eqnarray}\n\\]\nA particular value taken by an estimator is called estimate\nInstead of the variance \\(S^2\\) the standard deviation \\(S\\) is often used (same units of measurement)"
+  },
+  {
+    "objectID": "1-statistics.html#estimators-1",
+    "href": "1-statistics.html#estimators-1",
+    "title": "Intro to Statistics",
+    "section": "Estimators",
+    "text": "Estimators\nFor each property of the population it is possible to define an estimator, or statistic, built on the sample\nSample mean and variance are defined\n\\[\n\\begin{eqnarray} \\bar x &=& \\frac{1}{n}\\sum_{i=1}^n x_i\\\\\nS^2 &=& \\frac{\\sum_{i=1}^n (x_i - \\bar x)^2}{n-1}\n\\end{eqnarray}\n\\]\nA particular value taken by an estimator is called estimate\nInstead of the variance \\(S^2\\) the standard deviation \\(S\\) is often used (same units of measurement)"
+  },
+  {
+    "objectID": "1-statistics.html#estimates",
+    "href": "1-statistics.html#estimates",
+    "title": "Intro to Statistics",
+    "section": "Estimates",
+    "text": "Estimates\n\n\nSince each sample is drawn randomly, each estimate is a random variable\nThe larger the sample, the closer the estimate is to the corresponding property: convergence in distribution"
+  },
+  {
+    "objectID": "1-statistics.html#expected-value-and-variance-of-the-sample-mean",
+    "href": "1-statistics.html#expected-value-and-variance-of-the-sample-mean",
+    "title": "Intro to Statistics",
+    "section": "Expected value and variance of the sample mean",
+    "text": "Expected value and variance of the sample mean\nExpected value of the average:\n\\[\n\\begin{eqnarray} \\mathrm E(\\bar x) &=& \\mathrm E(\\frac{x_1+x_2+\\dots+x_n}{n}) = \\frac{1}{n}\\left[\\mathrm E (x_1+x_2+\\dots+x_n) \\right]\\\\\n&=& \\frac{1}{n}\\left[\\mathrm E(x_1)+\\mathrm E(x_2)+\\dots+\\mathrm E(x_n) \\right] = \\frac{1}{n} n\\mathrm E(x) \\\\\n\\mathrm E(\\bar x)&=& \\mu\n\\end{eqnarray}\n\\]\nVariance of the mean:\n\\[\n\\begin{eqnarray}\n\\mathrm V(\\bar x) &=& \\mathrm V(\\frac{x_1+x_2+\\dots+x_n}{n}) = \\frac{1}{n^2}\\left[\\mathrm V(x_1+ x_2+\\dots+x_n) \\right]\\\\\n&=& \\frac{1}{n^2}\\left[\\mathrm V(x_1)+\\mathrm V(x_2)+\\dots+\\mathrm V(x_n) \\right] = \\frac{n\\mathrm V( x)}{n^2} = \\frac{\\mathrm V(x)}{n} \\\\\n\\mathrm V(\\bar x) &=& \\frac{\\sigma^2}{n}\n\\end{eqnarray}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#degrees-of-freedom",
+    "href": "1-statistics.html#degrees-of-freedom",
+    "title": "Intro to Statistics",
+    "section": "Degrees of freedom",
+    "text": "Degrees of freedom\nThe degrees of freedom of a statistic (GdF or DoF) are the number of independent elements that appear in its definition. From the definition of the variance it follows that\n\\[\n\\sigma^2=E\\left(\\frac{\\sum(x_i - \\bar x)^2}{n-1}\\right)=E\\left(\\frac{SS}{\\nu}\\right)\n\\]\nThat is, the variance is the expected value of the Sum of Squares divided by its number of degrees of freedom \\(\\nu\\), i.e. of independent elements.\nThat the latter are \\(n-1\\) is demonstrated by the following relation: \\[\n\\sum_{i=1}^n(x_i-\\bar x) = \\sum_{i=1}^n(x_i)-n\\bar x=:0\n\\] therefore not all the \\(n\\) elements in the definition of \\(SS\\) can be independent, given that the value of one of them is predictable from the remaining \\(n-1\\) thanks to the definition of \\(\\bar x\\)"
+  },
+  {
+    "objectID": "1-statistics.html#distributions-1",
+    "href": "1-statistics.html#distributions-1",
+    "title": "Intro to Statistics",
+    "section": "Distributions",
+    "text": "Distributions\n\n\nDiscrete distributions\n\n\n\n\n\n\n\n\n\n\nContinuous distributions"
+  },
+  {
+    "objectID": "1-statistics.html#binomial-or-bernoulli-distribution",
+    "href": "1-statistics.html#binomial-or-bernoulli-distribution",
+    "title": "Intro to Statistics",
+    "section": "Binomial or Bernoulli distribution",
+    "text": "Binomial or Bernoulli distribution\n\n\n\nDescriptionDefinitionsExamples\n\n\nA Bernoulli process is a series of \\(n\\) events with outcomes \\(z_1, z_2, \\dots, z_n\\) such that:\n\nevents \\(z_i\\) are all independent\neach \\(z_i\\) can be represented with 0 or 1\nthe probability of success \\(p_s\\in[0,1]\\) of each event is constant\n\nThe binomial distribution describes the probability of getting \\(x\\in[0, n]\\) successes (out of \\(n\\) trials)\n\n\n\nWe say that \\(x\\sim\\mathrm{Binom}(n,p_s)\\) or even \\(x\\sim\\mathcal{B}(n,p_s)\\) when the PDF is: \\[\np(x)=\\binom{n}{x}p_s^x(1-p_s)^{n-x},~~~x\\in{0,1\\dots,n}\n\\]\nMoments: \\[\n\\mu=np_s,~~~\\sigma^2=np_s(1-p_s)\n\\]\n\n\n\n\nprobability of getting 8 heads by flipping a coin 10 times\nprobability of finding 3 defective items in a batch of 20, with a defect rate of 0.1\nprobability of 2 sixes in 10 dice rolls"
+  },
+  {
+    "objectID": "1-statistics.html#poisson-distribution",
+    "href": "1-statistics.html#poisson-distribution",
+    "title": "Intro to Statistics",
+    "section": "Poisson distribution",
+    "text": "Poisson distribution\n\n\n\nDescriptionDefinitionsExamples\n\n\n\nProbability of having a number \\(x\\in\\mathbb{N}^+\\) of events that occur successively and independently in a given interval of time (or space…)\nOn average \\(\\lambda\\in\\mathbb{R}^+\\) events occur in the same interval\nIt is also known as law of rare events\n\n\n\n\nWe say that \\(x\\sim\\mathrm{Poisson}(\\lambda)\\) or \\(x\\sim\\mathcal{P}(\\lambda)\\) when the PDF is: \\[\np(x)=\\frac{e^{-\\lambda}\\lambda^x}{x!},~~~\\forall x\\in\\mathbb{N}^+\n\\]\nMoments: \\[\n\\mu=\\lambda,~~~\\sigma^2=\\lambda\n\\]\n\n\n\n\nprobability of finding a defect on 1 m of wire, when there are on average 9 defects every 100 m: \\(\\lambda=\\frac{9~\\text{def}}{100~\\text m} * 1~\\text m = 0.09~\\text{def}\\)\nprobability of receiving a phone call in the next 10 min in a switchboard which receives on average 250 calls per day: \\(\\lambda=\\frac{250~\\text{calls}}{24~\\text{h}} * 1/6~\\text{h} \\simeq 1.74~\\text{calls}\\)\nprobability of incoming patient in a hospital with an average of 1825 patients per year: \\(\\lambda=1825~\\text{patients}/365~\\text{days} \\simeq 5~\\text{patients}\\) (see chart on the right)"
+  },
+  {
+    "objectID": "1-statistics.html#geometric-distribution",
+    "href": "1-statistics.html#geometric-distribution",
+    "title": "Intro to Statistics",
+    "section": "Geometric distribution",
+    "text": "Geometric distribution\n\n\n\nDescriptionDefinitionsExamples\n\n\nIt is the probability distribution of obtaining a success in a Bernoulli process after \\(x \\in \\mathbb{N}^+\\) failures (so, when \\(x=0\\) we have a success on first trial and \\(p(0)=p_s\\))\n\n\n\nIt is said that \\(x\\sim\\mathrm{Geom}(p_s)\\) or \\(x\\sim\\mathcal{G}(p_s)\\) when the PDF is: \\[\np(x)=p_s(1-p_s)^{x-1},~~~x \\in\\mathbb{N}^+\n\\]\nMoments: \\[\n\\mu=(1-p_s)/p_s,~~~\\sigma^2=(1-p_s)/p_s^2\n\\]\n\n\n\n\nThe probability of getting a sequence of ten tails in sequence (and then a head) by flipping a coin"
+  },
+  {
+    "objectID": "1-statistics.html#uniform-distribution",
+    "href": "1-statistics.html#uniform-distribution",
+    "title": "Intro to Statistics",
+    "section": "Uniform distribution",
+    "text": "Uniform distribution\n\n\n\nDescriptionDefinitionsExamples\n\n\n\ndistribution in which all the values of the r.v. they have the same probability\ncan be both discrete and continuous\n\n\n\n\nWe say \\(x\\sim\\mathcal{U}(a,b)\\) when the PDF is: \\[\nf(x)=\\begin{cases} 1/(b-a),&x\\in[a, b] \\\\\n0,&\\textrm{otherwise} \\end{cases}\n\\]\nMoments: \\[\n\\mu=(b+a)/2,~~~\\sigma^2=\\frac{(b-a)^2}{12}\n\\]\n\n\n\n\nRolling a 6-sided die (fair)\nThe extraction of a bingo number (discrete)\nThe stopping angle of a freely rotating wheel (continuous)"
+  },
+  {
+    "objectID": "1-statistics.html#normal-or-gaussian-distribution",
+    "href": "1-statistics.html#normal-or-gaussian-distribution",
+    "title": "Intro to Statistics",
+    "section": "Normal or Gaussian distribution",
+    "text": "Normal or Gaussian distribution\n\n\n\nDescriptionDefinitionsNote\n\n\n\nRepresents the case in which the probability of finding values that are progressively further from the expected value decreases asymptotically to 0\nThe probability of any value is never zero\n\n\n\n\nWe say that \\(x\\sim\\mathrm{Norm}(\\mu,\\sigma^2)\\) or \\(x\\sim\\mathcal{N}(\\mu,\\sigma^2)\\) when the PDF is: \\[\n   f(x) =\\frac{1}{\\sigma \\sqrt{2 \\pi}}e^{-\\frac{1}{2}\\left[\\frac{x-\\mu}{\\sigma}\\right ]^2}\n\\]\nMoments: coincide with the two parameters \\(\\mu\\) and \\(\\sigma^2\\)\n\n\n\nIf \\(x\\sim\\mathcal{N}(\\mu, \\sigma^2)\\) then \\[\n\\frac{x-\\mu}{\\sigma}\\sim\\mathcal{N}(0,1)\n\\] and the distribution \\(\\mathcal{N}(0,1)\\) is called standard normal.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIt is a distribution that plays a central role, by virtue of the central limit theorem"
+  },
+  {
+    "objectID": "1-statistics.html#central-limit-theorem-statement",
+    "href": "1-statistics.html#central-limit-theorem-statement",
+    "title": "Intro to Statistics",
+    "section": "Central limit theorem (statement)",
+    "text": "Central limit theorem (statement)\n\nTheorem 1 (Celtral limit) If \\(x_1, x_2, \\dots,x_n\\) are \\(n\\) independent and identically distributed (IID) random variables with \\(E(x_i)=\\mu\\) and \\(V(x_i)=\\sigma^2~ ~\\forall i=1,2,\\dots,n\\) (both finite), and \\(y=x_1+x_2+\\dots+x_n\\), then: \\[\nz_n=\\frac{y-n\\mu}{\\sqrt{n\\sigma^2}}\n\\] approximates a distribution \\(\\mathcal{N}(0,1)\\), in the sense that if \\(F_n(z)\\) is the distribution function of \\(z_n\\) and \\(\\Phi(z)\\) is the distribution function of \\(\\mathcal{N}(0,1)\\), then: \\[\n\\lim_{n\\rightarrow+\\infty}\\frac{F_n(z)}{\\Phi(z)}=1\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#central-limit-theorem-meaning",
+    "href": "1-statistics.html#central-limit-theorem-meaning",
+    "title": "Intro to Statistics",
+    "section": "Central limit theorem (meaning)",
+    "text": "Central limit theorem (meaning)\n\nFundamental in the field of measurements:\n\na measurement is the sum of a series of events\neach event can have an unknown distribution\nby adding many distributions the result converges to the normal\ntherefore the result of a measurement is often normal\n\nConvergence is often very rapid (about ten elements)\nNote: adding or multiplying a distribution by a constant changes its moments but the distribution remains the same. Instead, operations between r.v. change the resulting distribution!"
+  },
+  {
+    "objectID": "1-statistics.html#chi-square-distribution",
+    "href": "1-statistics.html#chi-square-distribution",
+    "title": "Intro to Statistics",
+    "section": "Chi-square distribution",
+    "text": "Chi-square distribution\n\n\n\nDescriptionDefinitionsNote\n\n\n\nIt is the distribution of a sum of standard normal distributions\nThat is, let \\(x = z_1^2+z_2^2+\\dots+z_k^2\\), with \\(z_i\\sim\\mathcal{N}(0,1)~~\\forall i=1, 2, \\dots ,k\\), then the distribution of \\(x\\) is a Chi-square\nThe number of summed normals \\(k\\) is the number of degrees of freedom of the distribution\n\n\n\n\nWe say that \\(x\\sim\\chi^2_k\\) when the PDF is: \\[\n   f(x)=\\frac{1}{2^{k/2}\\Gamma(k/2)}x^{k/2-1}e^{-y/2}\n\\]\nMoments: \\[\n   \\mu=k,~~~\\sigma^2=2k\n\\]\n\n\n\nConsidering the quadratic sum of a sample of \\(k\\) elements \\(y_i\\), each coming from a distribution \\(\\mathcal{N}(\\mu, \\sigma^2)\\), it turns out that: \\[\n\\frac{(y_i-\\bar y)}{\\sigma}\\sim \\mathcal{N}(0,1)~~\\forall i=1,2,\\dots,k\n\\] and therefore: \\[\n\\frac{\\mathit{SS}}{\\sigma^2}=\\frac{\\sum_{i=1}^k(y_i-\\bar y)^2}{\\sigma^2} \\sim \\mathcal{X }^2_{k-1}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#students-t-distribution",
+    "href": "1-statistics.html#students-t-distribution",
+    "title": "Intro to Statistics",
+    "section": "Student’s T distribution",
+    "text": "Student’s T distribution\n\n\n\nDescriptionDefinitionsNote\n\n\nLet there be two r.v. \\[\nz\\sim\\mathcal{N}(0,1),~x\\sim\\mathcal{X}^2_k\n\\] then their combination \\[\nx=\\frac{z}{\\sqrt{x/k}}\n\\] is distributed as a Student’s T\n\n\n\nIt is said that \\(x\\sim\\mathrm{T}_k\\) or \\(x\\sim\\mathcal{T}_k\\) when the PDF is: \\[\nf(x)=\\frac{\\Gamma\\left((k-1)/2\\right)}{\\sqrt{k\\pi}\\Gamma(k/2)}\\frac{1}{((x^ 2/k)+1)^{(k+1)/2}}\n\\]\nMoments: \\[\n\\mu = 0,~~~ \\sigma^2=k/(k-2)\n\\]\n\n\n\nStudent’s T is a special case of \\(\\mathcal{N}(0,1)\\): \\[\n\\lim_{k\\rightarrow+\\infty}t_k=\\mathcal{N}(0,1)\n\\] The convergence is very rapid: already for \\(k&gt;30\\) the difference between the two distribution functions becomes negligible\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe figure compares Student’s T with the standard normal (dashed)"
+  },
+  {
+    "objectID": "1-statistics.html#distribution-f-by-snedecor",
+    "href": "1-statistics.html#distribution-f-by-snedecor",
+    "title": "Intro to Statistics",
+    "section": "Distribution F by Snedecor",
+    "text": "Distribution F by Snedecor\n\n\n\nDescriptionDefinitions\n\n\nLet there be two r.v. \\[\nx_u\\sim\\mathcal{X}^2_u,~~~x_v\\sim\\mathcal{X}^2_v\n\\] and \\(x\\) is defined as: \\[x=\\frac{x_u/u}{x_v/v}\\] then \\(x\\) is a r.v. distributed as an F of Snedecor\n\n\n\nIt is said that \\(x\\sim\\mathrm{F}_{u,v}\\) or \\(x\\sim\\mathcal{F}_{u,v}\\) when the PDF is: \\[\nf(x)=\\frac{\\Gamma\\left(\\frac{u+v}{2}\\right)\\left(\\frac{u}{v}\\right)^{u/2}x^{( u/2)-1}}{\\Gamma\\left( \\frac{u}{2} \\right)\\Gamma\\left( \\frac{v}{2} \\right) \\left(\\frac{u}{ v}x+1\\right)^{(u+v)/2}}\n\\]\nMoments: \\[\n\\mu = \\frac{v}{v-2},~~~\\sigma^2=\\frac{2v^2(u+v-2)}{u(v-2)^2(v-4) }\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#distribution-functions",
+    "href": "1-statistics.html#distribution-functions",
+    "title": "Intro to Statistics",
+    "section": "Distribution functions",
+    "text": "Distribution functions\n\n\nA distribution is described by three interrelated functions:\n\ndistribution density function, PDF\ncumulative distribution function, CDF, is the progressive integral of the PDF: \\[\n   \\begin{array}{rcl}\n   \\mathrm{CDF}^-(x) &=& \\int_{-\\infty}^x \\mathrm{PDF}(x)~\\mathrm{d}x \\\\\n   \\mathrm{CDF}^+(x) &=& \\int^{+\\infty}_x \\mathrm{PDF}(x)~\\mathrm{d}x\n   \\end{array}\n   \\]\nquantile function, is the inverse of the CDF; it is defined only in \\([0,1]\\)\n\n\n\nPDFCDFQuantile"
+  },
+  {
+    "objectID": "1-statistics.html#statistical-hypotheses",
+    "href": "1-statistics.html#statistical-hypotheses",
+    "title": "Intro to Statistics",
+    "section": "Statistical hypotheses",
+    "text": "Statistical hypotheses\n\nIt has been seen that the sample mean and variance are two estimators and represent random variables\nSo by taking two samples from a population the two estimates of mean and variance will always be different\nHow do I know if two samples with different means come from the same population?\nI can formulate a pair of alternative hypotheses: \\[\n\\begin{eqnarray}\nH_0:~&\\mu_1 = \\mu_2 \\\\\nH_1:~&\\mu_1 \\neq \\mu_2 \\\\\n\\end{eqnarray}\n\\]\n\n\n\n\\(H_0\\) is called the null hypothesis, or weak; \\(H_1\\) is called the alternative hypothesis, or strong"
+  },
+  {
+    "objectID": "1-statistics.html#confusion-matrix",
+    "href": "1-statistics.html#confusion-matrix",
+    "title": "Intro to Statistics",
+    "section": "Confusion matrix",
+    "text": "Confusion matrix\n\n\nA hypothesis test can have two types of errors:\n\nType I error: false positive, or false alarm\nType II error: false negative, or no alarm\n\nThe purpose of inferential statistics is to associate a probability with these errors\n\n\n\n\n\n\nNull hypothesis\ntrue\nfalse\n\n\n\n\naccepted\nOK\nType II error\n\n\nrejected\nType I error\nOK\n\n\n\n\n\n\nThe probability of a Type I Error is \\(\\alpha\\), the probability of a Type II Error is \\(\\beta\\).\nThe value \\(1-\\beta\\) is the power \\(P\\) of the test\n\n\nNote: \\(\\alpha \\neq 1-\\beta\\)"
+  },
+  {
+    "objectID": "1-statistics.html#student-test",
+    "href": "1-statistics.html#student-test",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\n\n\n\n\n\nWilliam S. Gosset\n\n\n\n\nWilliam S. Gosset, known as Student, Guinness brewmaster in Dublin, ~1900\nProblem: how to decide if two different averages on process samples indicate two different processes?\nLet the two normal and independent samples be \\(y_{1,i},~i=1, 2, \\dots, n_1\\) and \\(y_{2,i},~i=1, 2, \\dots , n_2\\), will obviously be \\(\\bar{y_1}\\neq\\bar{y_2}\\), so how can we choose between \\(H_0\\) or \\(H_1\\)?\n\n\nObviously the answer is probabilistic: I can only associate an error probability \\(\\alpha\\) to the hypothesis test \\[\n\\begin{eqnarray}\nH_0:~&\\mu_1 = \\mu_2 \\\\\nH_1:~&\\mu_1 \\neq \\mu_2 \\\\\n\\end{eqnarray}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#student-test-1",
+    "href": "1-statistics.html#student-test-1",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\n\n\n\nSamples C1 and C3 will not have common values: it is very likely that they come from different populations\nSamples C1 and C2, however, are more difficult to distinguish\nIntuitively, \\(H_1\\) is more probable the further apart the means are and the narrower the variances\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIn the graph, the vertical dashes at the bottom represent the values of 10 random samples drawn from the respective populations"
+  },
+  {
+    "objectID": "1-statistics.html#student-test-2",
+    "href": "1-statistics.html#student-test-2",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\nFor the two samples \\(y_{1,i}\\) and \\(y_{2,i}\\) it is possible to define the variable: \\[\nt_0 = \\frac{\\bar{y_2} - \\bar{y_1}}{S_p\\sqrt{\\frac{1}{n_1} + \\frac{1}{n_s} }}\n\\] where \\(S_p^2\\) is called pooled variance and is: \\[\nS_p^2 = \\frac{(n_1-1)S_1^2 + (n_2-1)S_2^2}{n_1+n_2-2}\n\\] The \\(t_0\\) is the ratio between a r.v. normal to the numerator and a r.v. \\(\\chi^2\\) in the denominator. Consequently it is itself a r.v. and is defined as a Student’s T.\n\nThe number of degrees of freedom is the same as \\(\\chi^2\\) and is \\(n_1+n_2-2\\)\n\\(t_0\\) is called test statistic and it holds that \\(t_0\\sim t_{n_1+n_2-2}\\)"
+  },
+  {
+    "objectID": "1-statistics.html#student-test-3",
+    "href": "1-statistics.html#student-test-3",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\n\nIt is clear that cases like C1 vs. C3 in the previous graph will have a higher value of \\(|t_0|\\) than cases like C1 vs. C2 (relationship between distance and variance)\nBut given a pair of samples from the same population the probability of high values of \\(|t_0|\\) is very low\nSince we know the distribution of \\(t_0\\) we can therefore calculate the probability of finding a given value assuming that \\(H_1\\) is valid\nIn other words, the probability of rejecting \\(H_0\\) when it is true is equal to the probability of finding a value equal to or greater than \\(t_0\\) in the Student distribution\nIn reality, the sign of \\(t_0\\) is arbitrary, so we need to check the probability of finding a value outside the interval \\([-|t_0|, |t_0|]\\)"
+  },
+  {
+    "objectID": "1-statistics.html#student-test-4",
+    "href": "1-statistics.html#student-test-4",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\nUltimately, the probability of a type I error in the Student test is: \\[\np\\mathrm{-value} = 2\\mathrm{CDF}^+_t(|t_0|,n_1+n_2-2)\n\\] where \\(\\mathrm{CDF}^{+}_{t}\\) is the cumulative distribution, upper tail, of a Student’s T with \\(n_1+n_2-2\\) DoF, and where the factor 2 takes into account the last point on the previous page\nThe probability of error of any statistical test is called p-value\n\nThe smaller the p-value, the more likely we are to reject \\(H_0\\)\nTypically, \\(H_0\\) is rejected when the p-value becomes less than 5%"
+  },
+  {
+    "objectID": "1-statistics.html#student-test-5",
+    "href": "1-statistics.html#student-test-5",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test\nOften in statistical tests \\(H_0\\) is accepted or rejected on the basis of a Type I error probability threshold, denoted by \\(\\alpha\\)\n\nAn \\(\\alpha\\) is set a priori based on the risk associated with the test\nCalculate the value of \\(t_{0,\\mathrm{max}}\\) which corresponds to \\(\\alpha\\)\nIf \\(|t_0| \\geq t_{0,\\mathrm{max}}\\) rejects \\(H_0\\) with an error probability less than \\(\\alpha\\)\n\nThe threshold value is calculated using the quantile function and \\(H_0\\) is rejected when: \\[\n|t_0| \\geq t_{0,\\mathrm{max}} = t_{\\alpha/2, n_1+n_2-2}\n\\] where \\(t_{\\alpha/2, n_1+n_2-2}\\) is precisely the quantile function, upper tail, of the Student’s T evaluated for the probability \\(\\alpha/2\\) and for \\(n_1+n_2-2\\) DoF."
+  },
+  {
+    "objectID": "1-statistics.html#student-test-6",
+    "href": "1-statistics.html#student-test-6",
+    "title": "Intro to Statistics",
+    "section": "Student Test",
+    "text": "Student Test"
+  },
+  {
+    "objectID": "1-statistics.html#quantile-table",
+    "href": "1-statistics.html#quantile-table",
+    "title": "Intro to Statistics",
+    "section": "Quantile table",
+    "text": "Quantile table\nIn the absence of calculators, the Student Test was performed by predetermining \\(\\alpha\\) and deciding whether to reject \\(H_0\\) based on the quantile table:\n\n\n\n\n\n\ndof\n0.1\n0.05\n0.025\n0.01\n0.005\n0.0025\n0.001\n\n\n\n\n1\n3.078\n6.314\n12.706\n31.821\n63.657\n127.321\n318.309\n\n\n2\n1.886\n2.920\n4.303\n6.965\n9.925\n14.089\n22.327\n\n\n3\n1.638\n2.353\n3.182\n4.541\n5.841\n7.453\n10.215\n\n\n4\n1.533\n2.132\n2.776\n3.747\n4.604\n5.598\n7.173\n\n\n5\n1.476\n2.015\n2.571\n3.365\n4.032\n4.773\n5.893\n\n\n6\n1.440\n1.943\n2.447\n3.143\n3.707\n4.317\n5.208\n\n\n7\n1.415\n1.895\n2.365\n2.998\n3.499\n4.029\n4.785\n\n\n8\n1.397\n1.860\n2.306\n2.896\n3.355\n3.833\n4.501\n\n\n9\n1.383\n1.833\n2.262\n2.821\n3.250\n3.690\n4.297\n\n\n10\n1.372\n1.812\n2.228\n2.764\n3.169\n3.581\n4.144\n\n\n\n\n\n\nFor example, for a sample with 8 DoF and \\(\\alpha=10%\\) results in a critical value of \\(t_0=1.86\\): any value of \\(t_0\\) calculated higher than this value ( in module) involves the rejection of \\(H_0\\) with an error probability of less than 10%"
+  },
+  {
+    "objectID": "1-statistics.html#variants-of-the-student-test",
+    "href": "1-statistics.html#variants-of-the-student-test",
+    "title": "Intro to Statistics",
+    "section": "Variants of the Student test",
+    "text": "Variants of the Student test\nThe Student test seen above is valid for the most generic case. There are test variations for the following conditions, which can combine to result in 4 different tests:\n\none or two sample test\none-sided or two-sided test (in \\(H_1\\) the inequality is replaced with a \\(&gt;\\) or a \\(&lt;\\))\n\nFurthermore, in the case of two-sample tests it is possible to assume that the samples are homoscedastic or not\n\n\nTwo samples are said to be homoscedastic when they come from populations with identical variance"
+  },
+  {
+    "objectID": "1-statistics.html#variants-of-the-student-test-1",
+    "href": "1-statistics.html#variants-of-the-student-test-1",
+    "title": "Intro to Statistics",
+    "section": "Variants of the Student test",
+    "text": "Variants of the Student test\n\n\n\nOne sample test: \\[\n\\begin{eqnarray}\nH_0:~& \\mu = \\mu_0 \\\\\nH_1:~& \\mu \\neq \\mu_0\n\\end{eqnarray}\n\\] \\[\nt_0 = \\frac{\\mu_0 - \\bar y}{S/\\sqrt{n}}\n\\]\n\n\n\nOne-sided test: \\[\n\\begin{eqnarray}\nH_0:~& \\mu_1 = \\mu_2 \\\\\nH_1:~& \\mu_1 \\gtrless \\mu_2\n\\end{eqnarray}\n\\] \\[\n\\begin{eqnarray}\nt_0 &\\gtrless& \\pm t_{\\alpha, k} \\\\\np\\mathrm{-value} &=& CDF_t^{\\pm}(t_0, k)\n\\end{eqnarray}\n\\]\n\n\nNote: The one-sided test, at the same value of \\(t_0\\), has a lower rejection threshold of \\(H_0\\), and is therefore more powerful"
+  },
+  {
+    "objectID": "1-statistics.html#homoscedasticity",
+    "href": "1-statistics.html#homoscedasticity",
+    "title": "Intro to Statistics",
+    "section": "Homoscedasticity",
+    "text": "Homoscedasticity\nThe two-sample test seen above assumes that the two samples are homoscedastic. If they are not, you need to revise the definition of \\(t_0\\) as follows (Welch’s test): \\[\nt_0 = \\frac{\\bar{y_1} - \\bar{y_2}}{\\sqrt{S_1^2/n_1 + S_2^2/n_2}};~~~\\nu=\\frac{(S_1^2/n_1 + S_2^2/n_2)^2}{\\frac{(S_1^2/n_1)^2}{n_1-1}+\\frac{(S_2^2/n_2)^2}{n_2-1}}\n\\] The homoscedasticity hypothesis must be preliminarily verified with a variance test: \\[\n\\begin{eqnarray}\nH_0 :~& \\sigma^2_1 = \\sigma^2_2 \\\\\nH_1 :~& \\sigma^2_1 \\neq \\sigma^2_2\n\\end{eqnarray},~~~F_0=\\frac{S_1}{S_2}\\sim\\mathcal{F}_{n_1-1, n_2-1}\n\\] That is, if the p-value associated with \\(F_0\\) is small, it is assumed that the samples are not homoscedastic and therefore the Welch test is performed; otherwise the Student test applies"
+  },
+  {
+    "objectID": "1-statistics.html#the-paired-student-test",
+    "href": "1-statistics.html#the-paired-student-test",
+    "title": "Intro to Statistics",
+    "section": "The paired Student test",
+    "text": "The paired Student test\nIn the case of two-sample Student tests, when they have the same size and are collected two by two in very similar conditions, it is advisable to pair them and carry out the paired Student test\nEach measurement can be expressed as: \\[\ny_{ij}=\\mu_i+\\beta_j+\\varepsilon_{ij};\\hspace{9pt} \\left\\{ \\begin{array}{l}i=1,2\\\\j=1,2,\\dots ,n\\end{array} \\right.\n\\] If we define \\(d_j=y_{1j} - y_{2j}\\), remembering the properties of the operator \\(E(\\cdot)\\), it results in \\(\\mu_d = \\mu_1 - \\mu_2\\). So we can reformulate a pair of equivalent hypotheses: \\[\n\\begin{eqnarray}\nH_0 :~& \\mu_d = 0 \\\\\nH_1 :~& \\mu_d \\neq 0\n\\end{eqnarray}\n\\] So the paired test is a one-sample test, with the advantage that random effects between pairs of observations do not affect the test result"
+  },
+  {
+    "objectID": "1-statistics.html#the-confidence-interval",
+    "href": "1-statistics.html#the-confidence-interval",
+    "title": "Intro to Statistics",
+    "section": "The confidence interval",
+    "text": "The confidence interval\nGiven unknown parameter \\(\\vartheta\\), we want to define two statistics \\(L\\) and \\(U\\), such that the probability: \\(P(L\\leq\\vartheta\\leq U)= 1-\\alpha\\). In this case the interval \\([L,U]\\) is called the confidence interval for the parameter \\(\\vartheta\\).\nLet’s consider a one-sample T-test. We know that: \\[\nt_0=\\frac{\\bar x - \\mu}{S/\\sqrt{n}}\\sim t_{n-1}\n\\] If \\(c\\) is \\(t_{\\alpha/2, n-1}\\), then, by definition: \\(P(-c\\leq t_0\\leq c) = 1-\\alpha\\)\nSubstituting \\(t_0\\) we get: \\[\nP(\\bar x - cS/\\sqrt{n} \\leq \\mu \\leq \\bar x + cS/\\sqrt{n}) = 1-\\alpha\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#confidence-interval",
+    "href": "1-statistics.html#confidence-interval",
+    "title": "Intro to Statistics",
+    "section": "Confidence interval",
+    "text": "Confidence interval\nIn practice, it means that the expected value of the population (which is unknown!) has the probability \\(1-\\alpha\\) of falling in the interval \\([\\bar x - cS/\\sqrt{n}, \\bar x + cS /\\sqrt{n}]\\); that probability is called confidence\nIf the \\(\\mu_0\\) of the corresponding test lies outside the confidence interval, then we can reject \\(H_0\\) with an error less than \\(\\alpha\\).\nFor a two-sample test it results: \\[\nP\\left( -t_{\\alpha/2,n_1+n_2-2}\\leqslant\\frac{(\\bar y_1-\\bar y_2)-(\\mu_1-\\mu_2)}{S_p\\sqrt{\\frac{1 }{n_1}+\\frac{1}{n_2}}}\\leqslant t_{\\alpha/2,n_1+n_2-2} \\right)=1-\\alpha\n\\] So the confidence interval \\([L,U]\\) is defined by: \\[\n\\left[(\\bar y_1-\\bar y_2)-t_{\\alpha/2,n_1+n_2-2}S_p\\sqrt{\\frac{1}{n_1}+\\frac{1}{n_2}},~\n(\\bar y_1-\\bar y_2)+t_{\\alpha/2,n_1+n_2-2}S_p\\sqrt{\\frac{1}{n_1}+\\frac{1}{n_2}}~\\right]\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#power-of-students-t-test",
+    "href": "1-statistics.html#power-of-students-t-test",
+    "title": "Intro to Statistics",
+    "section": "Power of Student’s T-test",
+    "text": "Power of Student’s T-test\nThe power of a test is the error probability in rejecting \\(H_0\\) when it is false, i.e. \\(1-\\beta\\). It represents the test reliability. It depends on the samples size and on the relative difference \\(\\delta = (\\mu_1 - \\mu_2) / \\sigma\\). It is possible to calculate the power curves for different sample sizes and for different values of the relative difference \\(\\delta = (\\mu_1 - \\mu_2) / \\sigma\\).\n\n\n\n\n\n\n\n\n\n\n\n\n\ntest power decreases with \\(\\delta\\)\ntest power increases with sample size\ntest power increases with \\(\\alpha\\)\nwith \\(\\alpha=0.05\\) e \\(n=10\\), test power is \\(\\geq0.9\\) when \\(\\delta\\geq1.5\\)"
+  },
+  {
+    "objectID": "1-statistics.html#outliers",
+    "href": "1-statistics.html#outliers",
+    "title": "Intro to Statistics",
+    "section": "Outliers",
+    "text": "Outliers\nThe collection of data relating to a sample may be affected by errors:\n\nin the measurement operation\nin the data transcription operation\n\nThese errors obviously have a high probability of not agreeing with the rest of the data, i.e. of being too far from the mean in relation to the typical variance of the process.\nThese errors are called outlier and it is good practice to identify and eliminate them immediately after completing data collection\n\n\nIn Italian outliers are known as anomalie"
+  },
+  {
+    "objectID": "1-statistics.html#outliers-graphical-method",
+    "href": "1-statistics.html#outliers-graphical-method",
+    "title": "Intro to Statistics",
+    "section": "Outliers: graphical method",
+    "text": "Outliers: graphical method\nThe most common graphical method for identifying outliers is the box-plot"
+  },
+  {
+    "objectID": "1-statistics.html#outliers-statistical-tests",
+    "href": "1-statistics.html#outliers-statistical-tests",
+    "title": "Intro to Statistics",
+    "section": "Outliers: statistical tests",
+    "text": "Outliers: statistical tests\n\nChauvenet criterionGrubb Test\n\n\nIt is not a real test but a criterion based on which to eliminate the point furthest from the average (only one!)\nGiven \\(\\left&lt;x_1, x_2,\\dots,x_n\\right&gt;\\) with normal distribution, the maximum absolute difference is calculated \\(s_0=\\underset{i=1,\\dots,n}{\\max} \\left(\\frac{|x_i - \\bar x|}{S_x}\\right)\\)\nDue to the normality of the \\(x_i\\) it is evident that \\(|x_i-\\bar x|/S_x\\sim\\mathcal{N}(0,1)\\). We can then calculate the probability of a value greater than or equal to \\(s_0\\) from the upper tail distribution function: \\[\nP_s=CDF_{\\mathcal{N}}^+(s_0)\n\\] On \\(n\\) normal observations we expect \\(nP_s\\) values larger than \\(s_0\\). So, if \\(nP_s &lt; 0.5\\), while we have a suspicious point, then we can discard the outlier\n\n\nThe Grubb test is a real statistical test, based on a pair of hypotheses (\\(H_1\\) leads to the rejection of the suspected outlier), on a test statistic and on the calculation of a p- value.\nIn short: \\[\n\\begin{eqnarray}\nG_0 &=& \\frac{\\underset{i=1,\\dots,n}{\\max}|y_i-\\bar y|}{S_x}\\\\\nG_0 &&gt;& \\frac{n-1}{n}\\sqrt{\\frac{t^2_{\\alpha/(2n),n-2}}{n-2+t^2_{\\alpha/(2n ),n-2}}} \\Rightarrow \\neg H_0\n\\end{eqnarray}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis",
+    "href": "1-statistics.html#normality-analysis",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis",
+    "text": "Normality analysis\nThe tests seen so far always assume that the samples being operated on derive from a normal distribution, despite the unknown parameters\nBefore carrying out any test, therefore, it is necessary to verify the hypothesis of normality\nAs with the outliers analysis, also in this case it is possible to use both graphical methods and statistical tests\nIn general, statistical tests are always preferable, because\n\nare less subject to personal interpretation\nallow automation of choice within algorithms"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis-histogram",
+    "href": "1-statistics.html#normality-analysis-histogram",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis: histogram",
+    "text": "Normality analysis: histogram\n\n\n\n\n\n\n\n\n\n\nFor the number of bars, or bins, use the Sturges formula: \\(K = \\lceil\\log_2 n \\rceil + 1\\) or the Scott formula: \\(K=3.49 s / \\sqrt[3]{n}\\)"
+  },
+  {
+    "objectID": "1-statistics.html#sturges-vs.-scott",
+    "href": "1-statistics.html#sturges-vs.-scott",
+    "title": "Intro to Statistics",
+    "section": "Sturges vs. Scott",
+    "text": "Sturges vs. Scott"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis-quantile-quantile-plot",
+    "href": "1-statistics.html#normality-analysis-quantile-quantile-plot",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis: quantile-quantile plot",
+    "text": "Normality analysis: quantile-quantile plot\n\n\n\n\n\n\ni\nx\nf\nq\n\n\n\n\n1\n-1.540\n0.061\n-1.547\n\n\n2\n-0.929\n0.159\n-1.000\n\n\n3\n-0.326\n0.256\n-0.655\n\n\n4\n-0.295\n0.354\n-0.375\n\n\n5\n-0.006\n0.451\n-0.123\n\n\n6\n0.415\n0.549\n0.123\n\n\n7\n1.263\n0.646\n0.375\n\n\n8\n1.272\n0.744\n0.655\n\n\n9\n1.330\n0.841\n1.000\n\n\n10\n2.405\n0.939\n1.547\n\n\n\n\n\n\n\n\n\nColumn x is the sorted observations; the sample cumulative distribution, column f, is corrected with the Bloom’s formula: \\(f=(1-3/8)/(n+1-3/4)\\); the q column represents the standard normal quantiles of f.\nThe diagonal on the graph passes through the two points of the first and third quartiles"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis-quantile-quantile-plot-1",
+    "href": "1-statistics.html#normality-analysis-quantile-quantile-plot-1",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis: quantile-quantile plot",
+    "text": "Normality analysis: quantile-quantile plot"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis-chi-square-test",
+    "href": "1-statistics.html#normality-analysis-chi-square-test",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis: Chi-Square test",
+    "text": "Normality analysis: Chi-Square test\nIt is a statistical test to test the null hypothesis that a given sample comes from a given (chosen!) distribution\n\nWe group \\(\\left&lt;x_1, x_2, \\dots, x_n\\right&gt;\\) into \\(k\\) classes, such that each class has at least 4–5 elements. The width of each interval can be different\nLet \\(O_i,~i=1,2,\\dots,k\\) be the number of observations in each class, and \\(E_i\\) be the number of expected observations (expected) in each class for the hypothesized distribution\nThe differences between \\(O_i\\) and \\(E_i\\) will be the greater the higher the probability of \\(H_1\\). Then the test statistic is defined:\n\n\\[\nX_0^2 = \\sum_{i=1}^k \\frac{(O_i-E_i)^2}{E_i} \\sim \\chi_{k-p-1}^2\n\\] where \\(p\\) is the number of parameters of the hypothesized distribution (2 for the normal)"
+  },
+  {
+    "objectID": "1-statistics.html#normality-analysis-shapiro-wilk-test",
+    "href": "1-statistics.html#normality-analysis-shapiro-wilk-test",
+    "title": "Intro to Statistics",
+    "section": "Normality analysis: Shapiro-Wilk test",
+    "text": "Normality analysis: Shapiro-Wilk test\nAmong the tests of normality it is the one with the greatest power for a given level of significance\nThe test statistic is based on an anonymous distribution and known only numerically\nFor large enough samples, the test is so powerful that it highlights even small deviations from normality, due for example to outliers. In these cases it is appropriate to accompany it with a Quantile-Quantile plot to discriminate these effects"
+  },
+  {
+    "objectID": "1-statistics.html#correlation-check",
+    "href": "1-statistics.html#correlation-check",
+    "title": "Intro to Statistics",
+    "section": "Correlation check",
+    "text": "Correlation check\n\n\n\nThe T-test is valid for normal and independently distributed samples (IID)\nIt is necessary to test this hypothesis\nIf I plot the values of the two samples in a graph in the order in which they were acquired I can observe correlation (s1 vs. s3) or lack of correlation (s1 vs. s2)\n\n\n\n\n\n\n\n\n\n\n\n\nIt is clear that \\(\\rho_{s_1s_2}\\) will be close to 0, while \\(\\rho_{s_1s_3}\\) will be close to 1\nThere is a Pearson correlation test which provides a p-value associated with the alternative hypothesis that the two samples are correlated."
+  },
+  {
+    "objectID": "1-statistics.html#factors",
+    "href": "1-statistics.html#factors",
+    "title": "Intro to Statistics",
+    "section": "Factors",
+    "text": "Factors\n\nA factor is a parameter that determines the outcome of a process\nIt is possible to have quantitative or qualitative factors\n\nQuantitative factors take on levels that can be represented by real numbers\nQualitative factors take on non-ordered and non-measurable levels\n\nCombinations of different levels for different factors are called treatments\nThe value measured as the output of the process is called yield"
+  },
+  {
+    "objectID": "1-statistics.html#single-factor-and-multi-level-experiments",
+    "href": "1-statistics.html#single-factor-and-multi-level-experiments",
+    "title": "Intro to Statistics",
+    "section": "Single-factor and multi-level experiments",
+    "text": "Single-factor and multi-level experiments\nExample: tensile strength of a yarn as a function of the percentage of cotton fibers (quantitative factor)\n\nOne factor, 5 levels, each treatment is repeated 5 times\nThe boxplot is useful as an overview but for such small samples the indication of outliers is not reliable\n\n\n\n\n\n\n\n\n% Cotton\n#1\n#2\n#3\n#4\n#5\n\n\n\n\n15\n7\n7\n15\n11\n9\n\n\n20\n12\n17\n12\n18\n18\n\n\n25\n14\n18\n18\n19\n19\n\n\n30\n19\n25\n22\n19\n23\n\n\n35\n7\n10\n11\n15\n11"
+  },
+  {
+    "objectID": "1-statistics.html#single-factor-and-multi-level-experiments-1",
+    "href": "1-statistics.html#single-factor-and-multi-level-experiments-1",
+    "title": "Intro to Statistics",
+    "section": "Single-factor and multi-level experiments",
+    "text": "Single-factor and multi-level experiments\nThe question is: do the treatments produce statistically significant changes in yield (strength)?\nEach individual yield value can be expressed as (averages model): \\[\ny_{ij}=\\mu_i+\\varepsilon_{ij},~~\\left\\{\\begin{array}{rcl}\ni &=& 1, 2, \\dots, a \\\\\nj &=& 1, 2, \\dots, n\n\\end{array}\\right.\n\\] where \\(i\\) are the treatments, \\(j\\) are the repetitions, \\(\\varepsilon_{ij}\\) are the residuals, i.e. the purely stochastic and zero-mean component of the random variable \\(y_{ij}\\), while \\(\\mu_i\\) is the deterministic component\nWe can separate \\(\\mu_i = \\mu + \\tau_i\\), where \\(\\tau_i\\) is the contribution of the treatment to the overall mean \\(\\mu\\) (effects model): \\[\ny_{ij}=\\mu + \\tau_i+\\varepsilon_{ij},~~\\left\\{\\begin{array}{rcl}\ni &=& 1, 2, \\dots, a \\\\\nj &=& 1, 2, \\dots, n\n\\end{array}\\right.\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#single-factor-and-multi-level-experiments-2",
+    "href": "1-statistics.html#single-factor-and-multi-level-experiments-2",
+    "title": "Intro to Statistics",
+    "section": "Single-factor and multi-level experiments",
+    "text": "Single-factor and multi-level experiments\n\nWe can exploit the previous models to study the significance of the factor\nUsing the means model we have the pair of hypotheses:\n\n\\[\n\\begin{eqnarray}\nH_0&:&~\\mu_1=\\mu_2=\\dots =\\mu_a \\\\\nH_1&:&~\\mu_i\\neq\\mu_j~~~\\textrm{for at least one pair }(i, j)\n\\end{eqnarray}\n\\]\n\nEquivalently, using the effects model:\n\n\\[\n\\begin{eqnarray}\nH_0&:&~\\tau_1=\\tau_2=\\dots =\\tau_a = 0 \\\\\nH_1&:&~\\tau_i\\neq0~~~\\textrm{for at least one }i\n\\end{eqnarray}\n\\]\n\nTo dispel the hypothesis we must formulate an appropriate test statistic"
+  },
+  {
+    "objectID": "1-statistics.html#variance-decomposition",
+    "href": "1-statistics.html#variance-decomposition",
+    "title": "Intro to Statistics",
+    "section": "Variance decomposition",
+    "text": "Variance decomposition\nDefinitions:\n\nShorthand notation for sums:\n\n\\[\n\\begin{eqnarray}\ny_{i.}&=&\\sum_{j=1}^n y_{ij},~\\bar y_{i.}=y_{i.}/n,~i=1, 2, \\dots, a \\\\\ny_{..}&=&\\sum_{i=1}^a\\sum_{j=1}^n y_{ij},~\\bar y_{..}=y_{..}/N,~N=na\n\\end{eqnarray}\n\\]\n\nWe introduce the total corrected quadratic sum: \\[\n\\begin{equation}\nSS_T=\\sum_{i=1}^a\\sum_{j=1}^n (y_{ij}-\\bar y_{..})^2 = (N-1)V(y_{ij})\n\\end{equation}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#variance-decomposition-1",
+    "href": "1-statistics.html#variance-decomposition-1",
+    "title": "Intro to Statistics",
+    "section": "Variance decomposition",
+    "text": "Variance decomposition\nConsidering that: \\[\nSS_T=\\sum_{i=1}^a\\sum_{j=1}^n (y_{ij}-\\bar y_{..})^2 = \\sum_{i=1}^a\\sum_{j =1}^n [(\\bar y_{i.}-\\bar y_{..})+(y_{ij}-\\bar y_{i.})]^2\n\\]\nthat is to say:\n\\[\nSS_T= n\\sum_{i=1}^a(\\bar y_{i.}-\\bar y_{..})^2 + \\sum_{i=1}^a\\sum_{j=1}^n (y_{ij}-\\bar y_{i.})^2 + 2\\sum_{i=1}^a\\sum_{j=1}^n(\\bar y_{i.}-\\bar y_{. .})(y_{ij}-\\bar y_{i.})\n\\]\nand since \\(\\sum_{j=1}^n (y_{ij}-\\bar y_{i.})=y_{i.}-n\\bar y_{i.}=0\\), it follows that the \\(SS_T\\) can be decomposed as:\n\\[\nSS_T=\\sum_{i=1}^a\\sum_{j=1}^n (y_{ij}-\\bar y_{..})^2=n\\sum_{i=1}^a(\\bar y_{i.}-\\bar y_{..})^2 + \\sum_{i=1}^a\\sum_{j=1}^n (y_{ij}-\\bar y_{i.})^2=SS_{tr}+SS_E\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#variance-decomposition-2",
+    "href": "1-statistics.html#variance-decomposition-2",
+    "title": "Intro to Statistics",
+    "section": "Variance decomposition",
+    "text": "Variance decomposition\nWe have decomposed the \\(SS_T\\) (which is a close relative of the variance) into mean square sums:\n\n\\(SS_{tr}\\), which measures the variability between one treatment and another\n\\(SS_E\\), which measures variability within treatments\n\nRemembering what was said in the definition of the distribution \\(\\mathcal{X}^2\\):\n\\[\n\\frac{\\mathit{SS}}{\\sigma^2}=\\frac{\\sum_{i=1}^n(y_i-\\bar y)^2}{\\sigma^2} \\sim \\mathcal{X}^2_{n-1}\n\\]\nit seems that:\n\\[\n\\sum_{i=1}^{a}\\sum_{j=1}^{n}\\frac{(y_{ij}-\\bar y_{..})^2}{\\sigma^2} = \\frac{SS_T}{\\sigma^2} \\sim \\chi^2_{N-1},~~~\\frac{SS_E}{\\sigma^2} \\sim \\chi^2_{N-a},~~~\\frac{SS_{tr}}{\\sigma^2} \\sim \\chi^2_{a-1}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#variance-decomposition-3",
+    "href": "1-statistics.html#variance-decomposition-3",
+    "title": "Intro to Statistics",
+    "section": "Variance decomposition",
+    "text": "Variance decomposition\n\nThe ratio between a quadratic sum and its number of DoF is equal to the variance\nTherefore, if \\(H_0\\) is valid it must be \\(E(SS_{tr}/(a-1)) = E(SS_E/(N-a))\\), given that it is the expected value of several samples drawn from the same group of observations, all from the same population (\\(H_0\\) means that the treatments are not significant)\nBut then we can write:\n\n\\[\nF_0 = \\frac{SS_{tr}/(a-1)}{SS_E/(N-a)}=\\frac{MS_{tr}}{MS_E} \\sim F_{a-1,N-a}\n\\] Where \\(MS_\\cdot\\) are called mean sum of squares\nBased on the last equation we can calculate the p-value associated with the hypothesis \\(H_1\\): for small values we can state that at least one treatment has a statistically significant effect"
+  },
+  {
+    "objectID": "1-statistics.html#cochrans-theorem",
+    "href": "1-statistics.html#cochrans-theorem",
+    "title": "Intro to Statistics",
+    "section": "Cochran’s theorem",
+    "text": "Cochran’s theorem\nThe definition of \\(F_0\\) assumes that \\(MS_{tr}\\) and \\(MS_E\\) are independent. Since they are the result of the decomposition of \\(SS_T\\) this is not obvious. However, the theorem holds true:\n\nTheorem 2 (Cochran’s) Let \\(Z_i\\sim \\mathcal{N}(0,1),~i=1,2,\\dots,\\nu\\) independent samples, with \\(\\sum_{i=1}^\\nu Z_i^2=Q_1+Q_2+\\dots+Q_s\\) where \\(s\\leqslant \\nu\\) and \\(Q_i\\) has \\(\\nu_i\\) degrees of freedom (\\(i=1, 2,\\dots,s\\)). Then, \\(Q_1,Q_2,\\dots,Q_s\\) are independent random variables distributed as \\(\\mathcal{X}^2\\) with \\(\\nu_1,\\nu_2,\\dots,\\nu_s\\) degrees of freedom, if and only if \\[\n\\nu=\\nu_1+\\nu_2+\\dots+\\nu_s\n\\] Since \\((N-a)+(a-1)=(N-1)\\), it follows that \\(SS_{tr}/\\sigma^2\\) and \\(SS_E/\\sigma^2\\) are independent random variables distributed like \\(\\mathcal {X}^2_{a-1}\\) and \\(\\mathcal{X}^2_{N-a}\\), respectively."
+  },
+  {
+    "objectID": "1-statistics.html#anova-analysis-of-variance",
+    "href": "1-statistics.html#anova-analysis-of-variance",
+    "title": "Intro to Statistics",
+    "section": "ANOVA (ANalysis Of VAriance)",
+    "text": "ANOVA (ANalysis Of VAriance)\nReturning to the example of the resistance of mixed yarns, we can apply the variance decomposition obtaining:\n\n\n\n\n\n\nDf\nSum Sq\nMean Sq\nF value\nPr(&gt;F)\n\n\n\n\nCotton\n4\n475.76\n118.94\n14.75682\n9.1e-06\n\n\nResiduals\n20\n161.20\n8.06\nNA\nNA\n\n\n\n\n\nThe table above is called ANOVA table\nThe very low p-value allows us to reject the null hypothesis and state that at least one treatment has statistically significant effects\nHowever, we do not know how many and which treatments are significant. To study this aspect we use the Tukey Test"
+  },
+  {
+    "objectID": "1-statistics.html#tukey-test",
+    "href": "1-statistics.html#tukey-test",
+    "title": "Intro to Statistics",
+    "section": "Tukey test",
+    "text": "Tukey test\nThe test evaluates simultaneously all the following pairs of hypotheses: \\[\n\\left.\n\\begin{eqnarray}\nH_0&:&~\\mu_i=\\mu_j \\\\\nH_1&:&~\\mu_i\\neq \\mu_j\n\\end{eqnarray}\n\\right\\} ~~\\forall i\\neq j\n\\] For each pair \\((i,j),~i\\neq j\\) we have the test statistic: \\[\nq_{0,ij}=\\frac{|\\bar y_{i.}-\\bar y_{j.}|}{S_{p,ij}\\sqrt{2/n}}\\sim\\mathcal{Q} _{a,k}\n\\] where \\(n\\) is the size of the samples, the same for all, \\(a\\) is the number of treatments and \\(k\\) is the number of degrees of freedom of \\(MS_E\\), i.e. \\(N-a=an-a\\).\nFor each pair we then calculate the p-value from the CDF of the studentized range distribution, \\(\\mathcal{Q}\\), and calculate the confidence interval: \\[\n\\bar y_{i.}-\\bar y_{j.}-q_{\\alpha,a,N-a}\\frac{S_{p,ij}}{\\sqrt{n}} \\leqslant \\mu_i-\\mu_j\n\\leqslant \\bar y_{i.}-\\bar y_{j.}+q_{\\alpha,a,N-a}\\frac{S_{p,ij}}{\\sqrt{n}}\n\\]"
+  },
+  {
+    "objectID": "1-statistics.html#tukey-test-1",
+    "href": "1-statistics.html#tukey-test-1",
+    "title": "Intro to Statistics",
+    "section": "Tukey test",
+    "text": "Tukey test\n\n\nGenerally, the result of Tukey’s test is reported in a plot\nCouples for which the confidence interval crosses 0 have no significant differences, and vice versa\nNote: carrying out as many separate Student tests would increase the overall error probability, which would result from the combination of the error probabilities of the individual tests\n\n\n\n\n\n\n\n\n\n\n\n\n\nQuestion: What happens to confidence intervals going from a 95% interval to a 99% confidence level?"
+  },
+  {
+    "objectID": "1-statistics.html#meaning-of-p-value",
+    "href": "1-statistics.html#meaning-of-p-value",
+    "title": "Intro to Statistics",
+    "section": "Meaning of \\(p\\)-value",
+    "text": "Meaning of \\(p\\)-value\n\n\nThe meaning of the \\(p\\)-value is illustrated with an example: consider an experiment in which 1000 Student tests are performed on as many samples of \\(n=15\\) elements, each with a significance level of \\(\\alpha = 5\\)%\nSuppose it is a one-sample test, with null hypothesis \\(\\mu = \\mu_0\\) and alternative hypothesis \\(\\mu \\neq \\mu_0\\), and suppose all samples are taken from the same population with expected value \\(\\mu_0\\)\nThen the expected value of the wrong predictions (i.e. those in which \\(H_1\\) holds) is 5%\n\n\n\n\n\n\n\n\n\n\n\n\n\nNote: The same frequentist approach can be applied to any statistical test that produces a \\(p\\)-value"
+  },
+  {
+    "objectID": "1-statistics.html#and-if-we-change-n",
+    "href": "1-statistics.html#and-if-we-change-n",
+    "title": "Intro to Statistics",
+    "section": "And if we change \\(n\\)?",
+    "text": "And if we change \\(n\\)?\n\n\nIf we increase the size of the samples from 15 to 50, the probability of a type I error remains the same, under the same conditions\nHow is it possible?\nBy increasing the sample size we increase the power of the test, i.e. its ability to discriminate even small differences. But for a certain test, for a certain difference, the \\(p\\)-value does not depend on the sample size, because it is calculated compensating the effect of the sample size"
+  },
+  {
+    "objectID": "1-statistics.html#and-what-about-test-power",
+    "href": "1-statistics.html#and-what-about-test-power",
+    "title": "Intro to Statistics",
+    "section": "And what about test power?",
+    "text": "And what about test power?\n\n\nConsider the tests in which the hypotheses are:\n\\[\n\\begin{eqnarray}\nH_0:~&\\mu = \\mu_0 + \\sigma \\\\\nH_1:~&\\mu \\neq \\mu_0 + \\sigma\n\\end{eqnarray}\n\\] i.e. a difference of one \\(\\sigma\\) from the expected value of the population\nThen in the majority of cases we will have a small \\(p\\)-value, which hints us to reject \\(H_0\\) (Case A)\nBut if we switch from samples of 15 elements to samples of 30 elements (Case B) the power of the test increases significantly, under the same conditions\n\n\nCase ACase B"
+  },
+  {
+    "objectID": "3-regression.html#basics",
+    "href": "3-regression.html#basics",
+    "title": "Regression",
+    "section": "Basics",
+    "text": "Basics\n\nA model of a physical system can be expressed as: \\[\n   y=f(x_1, x_2, \\dots, x_n, c_1, c_2, \\dots, c_m)\n\\] where \\(x_i\\) are the physical (random) variables, called regressors or predictors, while the \\(c_i\\) are the parameters (constant) of the model, and \\(y\\) is the response or dependent variable\nIf \\(n=1\\) there is a single predictor and a single dependent variable we talk about simple regression\nFor example, \\(y=a+bx+cx^2\\) is a simple linear model with parameters \\(a,~b,~c\\)\nregressing the model means making measurements of \\(y\\) for different values of \\(x\\) and determining the values of the parameters \\(a,~b,~c\\) that minimize the distance between the model and experimental observations"
+  },
+  {
+    "objectID": "3-regression.html#types-of-regression",
+    "href": "3-regression.html#types-of-regression",
+    "title": "Regression",
+    "section": "Types of regression",
+    "text": "Types of regression\nWe will consider three types of regression:\n\nLinear regression: the model is a linear combination of parameters\nGeneralized linear regression\nLeast squares regression: parameters are combined in a non-linear way"
+  },
+  {
+    "objectID": "3-regression.html#basics-1",
+    "href": "3-regression.html#basics-1",
+    "title": "Regression",
+    "section": "Basics",
+    "text": "Basics\nThe statistical model of a process with \\(n\\) parameters to be regressed is defined as follows: \\[\ny_i=f(x_{1i}, x_{2i}, \\dots, y_{ni}) = \\hat{y_i} + \\varepsilon_{ij},~~~i=1,2,\\dots,N\n\\]\nwhere \\(i\\) is the observation index (\\(N\\geq n+1\\) in total), \\(\\hat{y_i}\\) is the regressed value, or prediction, at the observation \\(i\\), and \\(\\varepsilon_{ij}\\) are the residuals\n\nThe regressed value corresponds to the deterministic component\nThe residuals are the random component\nThe hypothesis of normality of the residuals is assumed, i.e. that \\(\\varepsilon_{ij} \\sim\\mathcal{N}(0, \\sigma^2)\\)\n\n\nIf the \\(f(\\cdot)\\) is an analytical function with one predictor and linear in the coefficients, then we can express it as \\(\\mathbf{A}\\mathbf{k}=\\mathbf{y}\\), where\n\n\\(\\mathbf{y}\\) is the vector of \\(y_i,~i=1\\dots N\\)\n\\(\\mathbf{k}\\) is the vector of parameters \\(c_j,~j=1\\dots n+1\\)\n\\(\\mathbf{A}\\) a matrix \\(N\\times (n+1)\\) composed as follows:\n\n\\[\n\\mathbf A = \\begin{bmatrix}\nx_1^{n-1} & x_1^{n-2} & \\dots & x_1 & 1 \\\\\nx_2^{n-1} & x_2^{n-2} & \\dots & x_2 & 1 \\\\\n\\vdots & \\vdots & \\vdots & \\vdots & \\vdots \\\\\nx_N^{n-1} & x_N^{n-2} & \\dots & x_N & 1 \\\\\n\\end{bmatrix}\n\\]"
+  },
+  {
+    "objectID": "3-regression.html#basics-2",
+    "href": "3-regression.html#basics-2",
+    "title": "Regression",
+    "section": "Basics",
+    "text": "Basics\nThe linear equation can be solved with the pseudo-inverse method: \\[\n\\begin{align}\n\\mathbf A^T \\mathbf A\\cdot \\mathbf{k} &= \\mathbf A^T \\cdot \\mathbf{y} \\\\\n(\\mathbf A^T \\mathbf A)^{-1} \\mathbf A^T \\mathbf A\\cdot \\mathbf{k} &= (\\mathbf A^T \\mathbf A)^{-1} \\mathbf A ^T \\cdot \\mathbf{y} \\\\\n\\mathbf{k} &= (\\mathbf A^T \\mathbf A)^{-1} \\mathbf A^T \\cdot \\mathbf{y}\n\\end{align}\n\\] This relationship makes clear what is meant by linear regression: it has nothing to do with the degree of the regressed function (which is not required to be linear in the predictors!), but only with the equation linear in the parameters that represents the model\nNOTE:\n\nfrom the previous matrix equation it is clear that the regression can be performed if and only if \\(N\\geq n+1\\), i.e. if the number of observations is at least equal to the number of parameters\neven in the case of a \\(f(x_1,x_2,\\dots,x_n)\\), if it is linear in the coefficients it is always possible to express it as \\(\\mathbf{A}\\mathbf{k}=\\mathbf{y}\\) and therefore solve it with the pseudo-inverse method"
+  },
+  {
+    "objectID": "3-regression.html#example",
+    "href": "3-regression.html#example",
+    "title": "Regression",
+    "section": "Example",
+    "text": "Example\n\n\nLet the model to be regressed be of the type \\(y_i=(ax_i + b) + \\varepsilon_i\\); then it can be represented as:\n\\[\n\\begin{bmatrix}\nx_1 & 1 \\\\\nx_2 & 1 \\\\\n\\vdots & \\vdots \\\\\nx_N & 1 \\\\\n\\end{bmatrix} \\cdot\n\\begin{bmatrix}\na \\\\\nb\n\\end{bmatrix} =\n\\begin{bmatrix}\ny_1 \\\\\ny_2 \\\\\n\\vdots \\\\\ny_N\n\\end{bmatrix}\n\\]\n\n\n\n\n\n\n\n\n\n\n\nThe figure shows the observations as points with coordinates \\((x_i, y_i)\\), the regressed model as a red line (linear model in the coefficients \\(a,~b\\) and first degree of the predictor \\(x\\)) and the residuals \\(\\varepsilon_i\\) as blue segments representing the difference between the \\(y_i\\) and the corresponding regressed value \\(\\hat{y_i}\\)"
+  },
+  {
+    "objectID": "3-regression.html#least-squares-regression-1",
+    "href": "3-regression.html#least-squares-regression-1",
+    "title": "Regression",
+    "section": "Least Squares Regression",
+    "text": "Least Squares Regression\nThat is, we look for the set of parameter values that minimizes the distance between the model and the observations. This minimization can be achieved by defining an index of merit which represents the distance between the model and observations depending on the parameters: \\[\n\\Phi(c_1, c_2,\\dots,c_m)=\\sum_{i=1}^N \\left(y_i - f(x_{1i},x_{2i},\\dots,x_{ni}, c_1, c_2 ,\\dots,c_m) \\right)^2\n\\]\n\n\nIf the \\(f(\\cdot)\\) is analytic and differentiable, then we can minimize \\(\\Phi(\\cdot)\\) by differentiation, i.e. by solving the system of \\(m\\) equations \\[\n\\frac{\\partial\\Phi}{\\partial c_i}(c_1,c_2,\\dots,c_m) = 0\n\\]\nIf \\(f(\\cdot)\\) is not differentiable, the minimum of \\(\\Phi(\\cdot)\\) can still be calculated numerically (e.g. Newton-Raphson method)"
+  },
+  {
+    "objectID": "3-regression.html#coefficient-of-determination",
+    "href": "3-regression.html#coefficient-of-determination",
+    "title": "Regression",
+    "section": "Coefficient of Determination",
+    "text": "Coefficient of Determination\n\n\n\nThe coefficient of merit most used to evaluate a regression is the coefficient of determination \\(R^2\\)\nIt is defined as \\(R^2 = 1 - \\frac{SS_\\mathrm{res}}{SS_\\mathrm{tot}}\\), where \\(SS_\\mathrm{res} = \\sum \\varepsilon_i^2\\) and \\(SS_ \\mathrm{tot} = \\sum(y_i - \\bar y)^2\\)\nIf the regressed values correspond to the observed values \\(y_i=\\hat{y_i}\\), then the residuals are all zero and \\(R^2 = 1\\)\nThe quality of the regression decreases as \\(R^2\\) decreases\n\n\n\nTwo datasetsSame set, two models\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nNote: As you can see, the values of the regressors do not need to be equally spaced!"
+  },
+  {
+    "objectID": "3-regression.html#underfitting",
+    "href": "3-regression.html#underfitting",
+    "title": "Regression",
+    "section": "Underfitting",
+    "text": "Underfitting\n\n\nThere is underfitting when the model has a lower degree than the apparent behavior of the observations\nIt can be highlighted, in addition to a low \\(R^2\\), by studying the distribution of the residuals: if there is under-fitting the residuals can be non-normal and, above all, show trends, or patterns \nA pattern is a regular trend of the residuals as a function of the regressors\nFrom the number of maximums and minimums present in the possible pattern it is possible to estimate how many degrees are missing\n\n\nUnderfittingCorrect fit"
+  },
+  {
+    "objectID": "3-regression.html#overfitting",
+    "href": "3-regression.html#overfitting",
+    "title": "Regression",
+    "section": "Overfitting",
+    "text": "Overfitting\n\n\nIf the degree of the model is excessive, the model tends to chase individual points\nThe value of \\(R^2\\) increases, reaching 1 when the degree equals the number of observations minus 1\nHowever, the model loses generality and is no longer able to correctly predict new values acquired at a later time (the red crosses in the figure)\nOverfitting has particularly dramatic effects in case of extrapolation, i.e. when evaluating the model outside the range into which it has been regressed"
+  },
+  {
+    "objectID": "3-regression.html#prediction-bands",
+    "href": "3-regression.html#prediction-bands",
+    "title": "Regression",
+    "section": "Prediction Bands",
+    "text": "Prediction Bands\n\n\nIt is a band symmetric with respect to the regression within which the observations (present and future) have an assigned probability of falling\nIn general, for a sufficiently large number of observations (\\(&gt;50\\)) the 95% prediction band contains 95% of the observations"
+  },
+  {
+    "objectID": "3-regression.html#confidence-bands",
+    "href": "3-regression.html#confidence-bands",
+    "title": "Regression",
+    "section": "Confidence Bands",
+    "text": "Confidence Bands\n\n\nIt is a band symmetric with respect to the regression within which the expected value of the model has an assigned probability of falling\nIt is always narrower than the prediction band\nIt is the multi-dimensional equivalent of the confidence interval for a T-test: as this is the interval, within which the value corresponding to the null hypothesis has an assigned probability of falling, here we can assume that the “true” model falls within the confidence band with a certain probability\n\n\n\n\n\n\n\n\n\n\n\nIt is obtained by calculating the confidence intervals on the regression parameters, then calculating—for each value of the predictor—the maximum and minimum value of the regression corresponding to the extreme values of the parameters in their confidence intervals"
+  },
+  {
+    "objectID": "3-regression.html#basics-3",
+    "href": "3-regression.html#basics-3",
+    "title": "Regression",
+    "section": "Basics",
+    "text": "Basics\nIn the case of linear regression: \\[\n\\begin{align}\ny_i &= f(\\mathbf{x}_i, \\mathbf{k}) + \\varepsilon_i = \\eta_i + \\varepsilon_i \\\\\n\\varepsilon_i &\\sim \\mathcal{N}(0, \\sigma^2)\n\\end{align}\n\\] In the case of generalized linear regression:\n\\[\n\\begin{align}\ny_i &= \\eta_i + \\varepsilon_i \\\\\n\\varepsilon_i &\\sim D(p_1,p_2,\\dots,p_k)\n\\end{align}\n\\] where \\(D\\) is a generic distribution with \\(k\\) parameters belonging to the family of exponential distributions (normal, binomial, gamma, inverse normal, Poisson, quasinormal, quasibinomial and quasipoissonian)\nThe problem can be solved by introducing a link function that rescales the residuals by projecting them onto a normal distribution"
+  },
+  {
+    "objectID": "3-regression.html#basics-4",
+    "href": "3-regression.html#basics-4",
+    "title": "Regression",
+    "section": "Basics",
+    "text": "Basics\nThe link function \\(g(\\cdot)\\) is such that:\n\\[\n\\begin{align}\ny_i &= \\eta_i + g(\\varepsilon_i) \\\\\n\\varepsilon_i &\\sim D(p_1,p_2,\\dots,p_k);~g(\\varepsilon_i)\\sim \\mathcal{N}(0, \\sigma^2)\n\\end{align}\n\\] The link functions for the most common distributions are:\n\n\n\n\n\nDistribution\nLink function\n\n\n\n\nNormal\n\\(g(x)=x\\)\n\n\nBinomial\n\\(g(x)=\\mathrm{logit}(x)\\)\n\n\nPoisson\n\\(g(x)=\\log(x)\\)\n\n\nRange\n\\(g(x)=1/x\\)\n\n\n\nIn particular, it holds: \\(\\mathrm{logit}(x)=\\frac{1}{1+e^{-p(x-x_0)}}\\)"
+  },
+  {
+    "objectID": "3-regression.html#logistic-regression",
+    "href": "3-regression.html#logistic-regression",
+    "title": "Regression",
+    "section": "Logistic Regression",
+    "text": "Logistic Regression\n\n\nThe typical case of logistic regression is the binomial event classifier\nwe consider a process that, depending on one or more predictors, can provide a result that can only be valid for one of two alternatives (success/failure, broken/intact, true/false, 1/0). We want to identify the threshold of predictors that switches the outcome\nA linear regression is not suitable for the situation: it is clear that the residuals are not normal and that the slope of the regression depends a lot on how many points are collected in the “safe” zones\n\n\nDataLinear model residuals"
+  },
+  {
+    "objectID": "3-regression.html#logistic-regression-1",
+    "href": "3-regression.html#logistic-regression-1",
+    "title": "Regression",
+    "section": "Logistic Regression",
+    "text": "Logistic Regression\n\n\nThe regressed logistic function provides the parameter \\(x_0\\) which identifies the value that separates an equal amount of false positives and false negatives\nFurthermore, it is possible to identify the appropriate threshold to obtain a predetermined probability of false positives (or false negatives)\nThis is the simplest type of machine learning: a binomial classifier"
+  },
+  {
+    "objectID": "3-regression.html#graphic-comparison-of-multiple-series",
+    "href": "3-regression.html#graphic-comparison-of-multiple-series",
+    "title": "Regression",
+    "section": "Graphic comparison of multiple series",
+    "text": "Graphic comparison of multiple series\n\n\nSuppose we have a process whose value depends on a variable \\(x\\)\nSuppose that a process parameter \\(S\\) can affect the output value. For example:\n\nthe value is the hardness of a metal, \\(x\\) is the temperature, the parameter \\(S\\) is the quantity of an alloying element\nthe value is the productivity of a plant, \\(x\\) is a quantitative process parameter, the parameter \\(S\\) is the type of machine used\n\n\n\n\n\n\n\n\n\n\n\n\nSuppose we repeat 8 times a measurement of the output value for the various combinations of \\(x\\) and \\(S\\), obtaining the results in the figure: which differences are significant?"
+  },
+  {
+    "objectID": "3-regression.html#without-a-reference-model",
+    "href": "3-regression.html#without-a-reference-model",
+    "title": "Regression",
+    "section": "Without a reference model",
+    "text": "Without a reference model\n\n\nWithout a reference model that expresses \\(v=f(x, S)\\) it makes no sense to perform a regression\nHowever, I can report, for each treatment\n\nthe average value, joining the series with a broken line for the sole purpose of visually grouping the data\nthe limits of the confidence interval for each series and for each treatment\nor, join the limits with a band representing confidence about the mean\n\n\n\n\n\n\n\n\n\n\n\n\nAreas where the bands overlap are statistically indistinguishable"
+  },
+  {
+    "objectID": "3-regression.html#with-a-model",
+    "href": "3-regression.html#with-a-model",
+    "title": "Regression",
+    "section": "With a model",
+    "text": "With a model\n\n\nOnly if I have a model \\(v=f(x, S)\\) I can perform a regression\nAlso in this case, the regression must be accompanied with confidence bands\nAgain, areas where the bands overlap are statistically indistinguishable"
+  },
+  {
+    "objectID": "5-DoE.html#industrial-experiment-or-scientific-experiment",
+    "href": "5-DoE.html#industrial-experiment-or-scientific-experiment",
+    "title": "Design of Experiments",
+    "section": "Industrial experiment or scientific experiment?",
+    "text": "Industrial experiment or scientific experiment?\n\n\nA scientific experiment is generally conducted with the purpose of supporting or disproving a theory\n\nit is always based on a theoretical model to be verified\noften the model focuses on the effect of a limited number of explanatory variables\n\n\nIn the industrial field this is often not possible:\n\noften a theoretical model for subject of the experiment is not available due to scientific, technical, or practical reasons\nthe interaction between multiple explanatory variables is often what matters most\n\n\n\nFor practical purposes, the design of the experiment is all the more important the higher the complexity (i.e. the number of factors involved)"
+  },
+  {
+    "objectID": "5-DoE.html#objectives-of-an-experiment",
+    "href": "5-DoE.html#objectives-of-an-experiment",
+    "title": "Design of Experiments",
+    "section": "Objectives of an experiment",
+    "text": "Objectives of an experiment\nIn general, an experiment serves to:\n\nconfirm a theoretical hypothesis (model): you want to verify the form \\(y=f(\\cdot)\\) of the theoretical model; the regression of the model is accompanied by the study of confidence intervals (analytical or bootstrap)\ncalibrate the parameters of a model: the shape is known and we want to obtain the parameter values; generally a regression is carried out, collecting data under realistic operating conditions\nidentify the explanatory variables that influence a process: the model may be unknown and we want to determine the list of independent variables that appear in the \\(y=f(\\cdot)\\); the objective is to build an approximate empirical model, which can possibly be used as a starting point for the formulation of a theoretical model"
+  },
+  {
+    "objectID": "5-DoE.html#dimensionality-of-an-experiment",
+    "href": "5-DoE.html#dimensionality-of-an-experiment",
+    "title": "Design of Experiments",
+    "section": "Dimensionality of an experiment",
+    "text": "Dimensionality of an experiment\nIf the model of interest si simple (i.e. one predictor), the experiment consists of analyzing the response variable at a sequence of levels for the explanatory variable. The number of levels is correlated with the expected degree of the response: for a regression of degree \\(m\\) you need at least \\(l=m+1\\) levels\nBut if the model has multiple predictors, i.e. the output depends on \\(n\\) explanatory variables, and each variable is investigated on \\(l\\) levels, then the number of test conditions is \\(l^n\\)\nIf each test condition is then repeated \\(r\\) times (to average the results), the number of individual experiments is \\(rl^n\\)\nThis number can become large and economically unsustainable very quickly\n\n\nSuppose we have 4 parameters and 4 levels, repeating each test 3 times: the total number of tests is 768; if the parameters become 5, the number grows to 3072, i.e. 4 times as much, a ratio which is also valid for the cost"
+  },
+  {
+    "objectID": "5-DoE.html#factorial-plan",
+    "href": "5-DoE.html#factorial-plan",
+    "title": "Design of Experiments",
+    "section": "Factorial plan",
+    "text": "Factorial plan\n\n\n\nTwo factors, \\(A\\) and \\(B\\)\nWe investigate 2 levels for each factor indicated as \\(X-\\) and \\(X+\\)\nLet’s change one level at a time\nWe evaluate each treatment only 1 time\nLet’s evaluate the effects of \\(A\\) and \\(B\\): \\[\n   \\begin{align}\n   A &= 50 - 20 = 30\\\\\n   B &= 30 - 20 = 10\n   \\end{align}\n   \\]"
+  },
+  {
+    "objectID": "5-DoE.html#yates-notation",
+    "href": "5-DoE.html#yates-notation",
+    "title": "Design of Experiments",
+    "section": "Yates notation",
+    "text": "Yates notation\nWhen the levels of all factors are only two, the Yates order can be used to indicate the combinations of levels:\n\nFactors and effects of factors are indicated with capital letters\nTreatments are indicated with combinations of lowercase letters\n\nletter present means factor at high level\nabsent letter means factor at low level\nif all the letters are absent, write \\((1)\\)\n\n\n\n\nIn the example on the previous slide, the treatments are \\((1), a, b\\)"
+  },
+  {
+    "objectID": "5-DoE.html#factorial-plan-1",
+    "href": "5-DoE.html#factorial-plan-1",
+    "title": "Design of Experiments",
+    "section": "Factorial plan",
+    "text": "Factorial plan\n\n\nChanging one factor at a time does not identify the interactions\nInteraction occurs when the effect of one factor depends on the level of another factor\nIn this second example we measure the response of treatments \\((1), a, b, ab\\)\nWe can estimate both the effects of \\(A\\) and \\(B\\) and the interaction \\(AB\\):\n\\[\n\\begin{align}\nA &= \\frac{a+ab}{2} - \\frac{(1) + b}{2} = 6\\\\\nB &= \\frac{b+ab}{2} - \\frac{(1) + a}{2} = -14 \\\\\nAB &= \\frac{a+b}{2} - \\frac{(1)+ab}{2} = -24\n\\end{align}\n\\]"
+  },
+  {
+    "objectID": "5-DoE.html#interaction-graph",
+    "href": "5-DoE.html#interaction-graph",
+    "title": "Design of Experiments",
+    "section": "Interaction graph",
+    "text": "Interaction graph\n\n\nThe concept of interaction is well illustrated by interaction graphs\n\nIf the two segments are parallel there is no interaction\nIf the two segments are crossed or convergent there is interaction\nIt is indifferent which factor is on the abscissa and which is on the series\n\n\n\nYield vs. AYield vs. B"
+  },
+  {
+    "objectID": "5-DoE.html#response-surface",
+    "href": "5-DoE.html#response-surface",
+    "title": "Design of Experiments",
+    "section": "Response surface",
+    "text": "Response surface\n\n\nThe interaction graphs are nothing more than projections on the axis of one of the two factors of the response surface\nCoded units are generally used, rescaling the range of each factor to the range \\([-1,1]\\)\nThis way you have the same sensitivity regardless of the original scale range\n\n\n\n\n\n\n\n\n\n\n\nNOTE: Neither the response surface nor the interaction plots give any information on the statistical significance of the effects"
+  },
+  {
+    "objectID": "5-DoE.html#l2-factorial-plans",
+    "href": "5-DoE.html#l2-factorial-plans",
+    "title": "Design of Experiments",
+    "section": "\\(l^2\\) factorial plans",
+    "text": "\\(l^2\\) factorial plans\nIn general, an experiment in which you have 2 factors each tested on \\(l\\) levels is a \\(l^2\\) factorial design, because the total number of treatments is \\(N=rl^2\\), where \\(r\\) is the number of repetitions for each treatment\nThe statistical model and regression model associated with the experiment are:\n\\[\ny_{ijk} = \\mu + \\alpha_i + \\beta_j + (\\alpha\\beta)_{ij} + \\varepsilon_{ijk};\\quad \\hat y = \\mu + \\alpha x_1 + \\beta x_2 + (\\alpha\\beta)x_1 x_2\n\\] with \\(x_1\\) and \\(x_2\\) the values of the two factors in coded units\nAs such, the experiment can be studied with a two-factor ANOVA (or two-way ANOVA):\n\n\n\\[\n\\textrm{A)}~\\left\\{\n\\begin{align}\nH_0&: \\alpha_1 = \\alpha_2 = \\dots =\\alpha_a = 0 \\\\\nH_1&: \\alpha_i \\ne 0\\quad\\textrm{for at least one}~i\n\\end{align}\n\\right.\n\\]\n\\[\n\\textrm{B)}~\\left\\{\n\\begin{align}\nH_0&: \\beta_1 = \\beta_2 = \\dots =\\beta_b = 0 \\\\\nH_1&: \\beta_j \\ne 0\\quad\\textrm{for at least one}~j\n\\end{align}\n\\right.\n\\]\n\n\\[\n\\textrm{AB)}~\\left\\{\n\\begin{align}\nH_0&: (\\alpha\\beta)_{ij} = 0\\quad \\forall~(i,j) \\\\\nH_1&: (\\alpha\\beta)_{ij} \\ne 0\\quad \\textrm{for at least one}~(i,j)\n\\end{align}\n\\right.\n\\]"
+  },
+  {
+    "objectID": "5-DoE.html#l2-factorial-plans-1",
+    "href": "5-DoE.html#l2-factorial-plans-1",
+    "title": "Design of Experiments",
+    "section": "\\(l^2\\) factorial plans",
+    "text": "\\(l^2\\) factorial plans\nThese pairs of hypotheses correspond to a decomposition of the corrected total square sum \\(SS_\\mathrm{tot}=SS_A + SS_B + SS_{AB} + SS_E\\)\nThe corresponding ANOVA table is:\n\n\n\n\n\n\n\n\n\n\n\nEffect\n\\(\\nu\\) (GdL)\n\\(SS\\)\n\\(MS\\)\n\\(F_0\\)\np-value\n\n\n\n\nA\n\\(a-1\\)\n\\(SS_A\\)\n\\(SS_A/\\nu_A\\)\n\\(MS_A/MS_E\\)\n\\(\\mathrm{CDF}^+(F_{0,A}, \\nu_A, \\nu_E)\\)\n\n\nB\n\\(b-1\\)\n\\(SS_B\\)\n\\(SS_B/\\nu_B\\)\n\\(MS_B/MS_E\\)\n\\(\\mathrm{CDF}^+(F_{0,B}, \\nu_B, \\nu_E)\\)\n\n\nAB\n\\((a-1)(b-1)\\)\n\\(SS_{AB}\\)\n\\(SS_{AB}/\\nu_{AB}\\)\n\\(MS_{AB}/MS_E\\)\n\\(\\mathrm{CDF}^+(F_{0,AB}, \\nu_{AB}, \\nu_E)\\)\n\n\nError\n\\(ab(n-1)\\)\n\\(SS_E\\)\n\\(SS_E/\\nu_E\\)\n—\n—\n\n\nTotal\n\\(abn-1\\)\n\\(SS_\\mathrm{tot}\\)\n\\(SS_\\mathrm{tot}/\\nu_\\mathrm{tot}\\)\n—\n—"
+  },
+  {
+    "objectID": "5-DoE.html#example",
+    "href": "5-DoE.html#example",
+    "title": "Design of Experiments",
+    "section": "Example",
+    "text": "Example\nWe want to study the effect of cutting speed (factor \\(A\\)) and rake angle (factor \\(B\\)) of a turning tool on tool life. The two factors are both quantitative; we decide to investigate three levels for each factor, repeating each treatment twice: factorial plan \\(2\\cdot 3^2\\)\n\n\n\npreparation of the test grid\nrandomization of the operative sequence\nexecution of experiments and data collection\nformulation and verification of the statistical model\nanalysis of variance (ANOVA)\ncreation of the response surface\n\nPoints 4 and 5 are possibly repeated\n\n\n\n\n\n\nStdOrder\nAngle\nA\nSpeed\nB\nRepeat\nLife\n\n\n\n\n1\n15\n-1\n125\n-1\n1\nNA\n\n\n2\n20\n0\n125\n-1\n1\nNA\n\n\n3\n25\n1\n125\n-1\n1\nNA\n\n\n4\n15\n-1\n150\n0\n1\nNA\n\n\n5\n20\n0\n150\n0\n1\nNA\n\n\n6\n25\n1\n150\n0\n1\nNA\n\n\n7\n15\n-1\n175\n1\n1\nNA\n\n\n8\n20\n0\n175\n1\n1\nNA\n\n\n9\n25\n1\n175\n1\n1\nNA\n\n\n\n\n\n\n\n\nFor reasons of space, the table only reports the first half of the rows, corresponding to the first repetition"
+  },
+  {
+    "objectID": "5-DoE.html#example-step-2.",
+    "href": "5-DoE.html#example-step-2.",
+    "title": "Design of Experiments",
+    "section": "Example — step 2.",
+    "text": "Example — step 2.\n\n\nIn the grid, a new column of randomly ordered integers \\(\\left&lt;1\\dots N\\right&gt;,~N=rl^n\\) is generated\nThe grid is rearranged according to the new column, usually called Run Order\n\n\n\n\n\n\nStdOrder\nRunOrder\nAngle\nA\nSpeed\nB\nRepeat\nLife\n\n\n\n\n4\n1\n15\n-1\n150\n0\n1\nNA\n\n\n5\n2\n20\n0\n150\n0\n1\nNA\n\n\n10\n3\n15\n-1\n125\n-1\n2\nNA\n\n\n2\n4\n20\n0\n125\n-1\n1\nNA\n\n\n12\n5\n25\n1\n125\n-1\n2\nNA\n\n\n15\n6\n25\n1\n150\n0\n2\nNA\n\n\n3\n7\n25\n1\n125\n-1\n1\nNA\n\n\n18\n8\n25\n1\n175\n1\n2\nNA\n\n\n17\n9\n20\n0\n175\n1\n2\nNA\n\n\n14\n10\n20\n0\n150\n0\n2\nNA\n\n\n8\n11\n20\n0\n175\n1\n1\nNA\n\n\n13\n12\n15\n-1\n150\n0\n2\nNA\n\n\n6\n13\n25\n1\n150\n0\n1\nNA\n\n\n1\n14\n15\n-1\n125\n-1\n1\nNA\n\n\n11\n15\n20\n0\n125\n-1\n2\nNA\n\n\n7\n16\n15\n-1\n175\n1\n1\nNA\n\n\n16\n17\n15\n-1\n175\n1\n2\nNA\n\n\n9\n18\n25\n1\n175\n1\n1\nNA"
+  },
+  {
+    "objectID": "5-DoE.html#example-step-3.",
+    "href": "5-DoE.html#example-step-3.",
+    "title": "Design of Experiments",
+    "section": "Example — step 3.",
+    "text": "Example — step 3.\n\n\nThe experiments are carried out according to the run order\nBy performing the experiments according to the run order possible unknown and uncontrolled effects are randomly distributed over all treatments:\n\nglobal variance increases (\\(SS_\\mathrm{tot}\\))\nthe relative effect of the factors is not altered (\\(SS_X\\))\n\nNote: a repetition is a replica of the entire experiment, not of the measurement operation alone\n\n\n\n\n\n\nStdOrder\nRunOrder\nAngle\nA\nSpeed\nB\nRepeat\nLife\n\n\n\n\n4\n1\n15\n-1\n150\n0\n1\n-3\n\n\n5\n2\n20\n0\n150\n0\n1\n1\n\n\n10\n3\n15\n-1\n125\n-1\n2\n-1\n\n\n2\n4\n20\n0\n125\n-1\n1\n0\n\n\n12\n5\n25\n1\n125\n-1\n2\n0\n\n\n15\n6\n25\n1\n150\n0\n2\n6\n\n\n3\n7\n25\n1\n125\n-1\n1\n-1\n\n\n18\n8\n25\n1\n175\n1\n2\n-1\n\n\n17\n9\n20\n0\n175\n1\n2\n6\n\n\n14\n10\n20\n0\n150\n0\n2\n3\n\n\n8\n11\n20\n0\n175\n1\n1\n4\n\n\n13\n12\n15\n-1\n150\n0\n2\n0\n\n\n6\n13\n25\n1\n150\n0\n1\n5\n\n\n1\n14\n15\n-1\n125\n-1\n1\n-2\n\n\n11\n15\n20\n0\n125\n-1\n2\n2\n\n\n7\n16\n15\n-1\n175\n1\n1\n2\n\n\n16\n17\n15\n-1\n175\n1\n2\n3\n\n\n9\n18\n25\n1\n175\n1\n1\n0"
+  },
+  {
+    "objectID": "5-DoE.html#example-step-4.",
+    "href": "5-DoE.html#example-step-4.",
+    "title": "Design of Experiments",
+    "section": "Example — step 4.",
+    "text": "Example — step 4.\n\n\nWe formulate the full quadratic regression model:\n\\[\\begin{align}\n\\hat y = & \\mu + \\alpha_1 x_1 + \\beta_1 x_2 + (\\alpha\\beta)_1x_1x_2 + \\\\\n          & + \\alpha_2x_1^2 + \\beta_2x_2^2 + (\\alpha\\beta)_{2,1}x_1^2x_2 + \\\\\n          & + (\\alpha\\beta)_{1,2}x_1x_2^2 + (\\alpha\\beta)_{2,2}x_1^2x_2^2\n      \n\\end{align}\\]\nwhere \\((\\alpha\\beta)\\) is not a product: it represents the coefficient of a product of factors \\(A\\) and \\(B\\)\nIt is necessary to evaluate normality and absence of pattern in the residuals\n\n\n\\(\\varepsilon(A)\\)\\(\\varepsilon(B)\\)\\(\\varepsilon(r)\\)Quantile-Quantile"
+  },
+  {
+    "objectID": "5-DoE.html#example-step-5.",
+    "href": "5-DoE.html#example-step-5.",
+    "title": "Design of Experiments",
+    "section": "Example — step 5.",
+    "text": "Example — step 5.\n\n\nChoosing 5% as the threshold on the p-value, we observe that these effects are statistically insignificant:\n\n\\(B^2\\), corresponding to the \\(\\beta_2\\) term in the regression\n\\(A^2B\\), corresponding to the \\((\\alpha\\beta)_{2,1}\\) term in the regression\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\neffect\n\\(\\nu\\)\n\\(SS\\)\n\\(MS\\)\n\\(F_0\\)\n\\(p\\mathrm{-value}\\)\n\n\n\n\n\\(A\\)\n1\n8.333333\n8.333333\n5.769231\n0.0397723\n\n\n\\(B\\)\n1\n21.333333\n21.333333\n14.769231\n0.0039479\n\n\n\\(A^2\\)\n1\n16.000000\n16.000000\n11.076923\n0.0088243\n\n\n\\(B^2\\)\n1\n4.000000\n4.000000\n2.769231\n0.1304507\n\n\n\\(AB\\)\n1\n8.000000\n8.000000\n5.538462\n0.0430650\n\n\n\\(A^2B\\)\n1\n2.666667\n2.666667\n1.846154\n0.2073056\n\n\n\\(AB^2\\)\n1\n42.666667\n42.666667\n29.538462\n0.0004137\n\n\n\\(A^2B^2\\)\n1\n8.000000\n8.000000\n5.538462\n0.0430650\n\n\n\\(\\varepsilon\\)\n9\n13.000000\n1.444444\nNA\nNA\n\n\n\n\n\n\nSo the regression equation becomes: \\[\\begin{align}\n\\hat y = & \\mu + \\alpha_1 x_1 + \\beta_1 x_2 + (\\alpha\\beta)_1x_1x_2 + \\\\\n          & + \\alpha_2x_1^2 + (\\alpha\\beta)_{1,2}x_1x_2^2 + \\\\\n          & + (\\alpha\\beta)_{2,2}x_1^2x_2^2\n      \n\\end{align}\\]"
+  },
+  {
+    "objectID": "5-DoE.html#example-step-6.",
+    "href": "5-DoE.html#example-step-6.",
+    "title": "Design of Experiments",
+    "section": "Example — step 6.",
+    "text": "Example — step 6.\n\n\nThe response surface allows you to identify notable points and directions:\n\nPoint S is a saddle point, where the gradient is zero in any direction: stable point\nAt point P, the directions tangential to the isohypse are constant yield directions\nPoint M is a maximum of yield\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIn general, a response surface is a hyper-surface in an \\(n+1\\)-dimensional space, where \\(n\\) is the number of factors"
+  },
+  {
+    "objectID": "5-DoE.html#model-adequacy-analysis",
+    "href": "5-DoE.html#model-adequacy-analysis",
+    "title": "Design of Experiments",
+    "section": "Model adequacy analysis",
+    "text": "Model adequacy analysis\nAfter possibly excluding some effects (for example \\(B^2\\) and \\(A^2B\\)) it is necessary to:\n\nreformulate the model\nanalyze the residuals of the new model\nconfirm with a new ANOVA\n\nIn particular, the analysis of the residuals is called model adequacy check (Model Adequacy Check, MAC) and typically consists of:\n\nchecks for absence of patterns in the residuals depending on the factors\nchecks for absence of patterns in the residuals depending on the test order\nverification of normality of residuals (Q-Q graph and Shapiro-Wilk test)"
+  },
+  {
+    "objectID": "5-DoE.html#n-factorial-plan",
+    "href": "5-DoE.html#n-factorial-plan",
+    "title": "Design of Experiments",
+    "section": "\\(2^n\\) factorial plan",
+    "text": "\\(2^n\\) factorial plan\n\n\nFactor plans in which all factors have two levels (low and high, -1 and +1 in coded units) are of particular interest\n\nallow you to regress models only of the first degree\nrequire minimal testing\nthey still allow to define the sensitivity of the process to the various factors, excluding non-significant factors\nare the starting point of any analysis of complex processes (i.e. with more than one explanatory variable)"
+  },
+  {
+    "objectID": "5-DoE.html#n-factorial-plan-1",
+    "href": "5-DoE.html#n-factorial-plan-1",
+    "title": "Design of Experiments",
+    "section": "\\(2^n\\) factorial plan",
+    "text": "\\(2^n\\) factorial plan\n\n\n\nEach factor has two levels: low and high. In coded units -1 and +1 are valid, referred to for short as - and +\nThe treatments, i.e. combinations of levels for the \\(n\\) factors, are indicated with Yates notation\nthe design matrix is obtained by permuting all the factors between - and + with frequencies gradually halved\nthe project matrix is repeated for the \\(r\\) repetitions and also reports the random execution order column\nthe effects matrix is obtained by adding the columns for the interactions, calculated as the product of the relative signs\n\n\n\nDesign matrixEffects matrix\n\n\n\n\n\n\n\ntreatment\nrepetition\nA\nB\nC\norder\n\n\n\n\n(1)\n1\n-\n-\n-\n1\n\n\na\n1\n+\n-\n-\n7\n\n\nb\n1\n-\n+\n-\n5\n\n\nab\n1\n+\n+\n-\n6\n\n\nc\n1\n-\n-\n+\n8\n\n\nac\n1\n+\n-\n+\n4\n\n\nbc\n1\n-\n+\n+\n2\n\n\nabc\n1\n+\n+\n+\n3\n\n\n\n\n\n\n\n\n\n\n\n\ntreatment\nI\nA\nB\nAB\nC\nAC\nBC\nABC\n\n\n\n\n(1)\n+\n-\n-\n+\n-\n+\n+\n-\n\n\na\n+\n+\n-\n-\n-\n-\n+\n+\n\n\nb\n+\n-\n+\n-\n-\n+\n-\n+\n\n\nab\n+\n+\n+\n+\n-\n-\n-\n-\n\n\nc\n+\n-\n-\n+\n+\n-\n-\n+\n\n\nac\n+\n+\n-\n-\n+\n+\n-\n-\n\n\nbc\n+\n-\n+\n-\n+\n-\n+\n-\n\n\nabc\n+\n+\n+\n+\n+\n+\n+\n+"
+  },
+  {
+    "objectID": "5-DoE.html#n-factorial-plan-2",
+    "href": "5-DoE.html#n-factorial-plan-2",
+    "title": "Design of Experiments",
+    "section": "\\(2^n\\) factorial plan",
+    "text": "\\(2^n\\) factorial plan\nThe effects matrix contains the information to calculate the effects and the quadratic sums \\(SS\\) which, in turn, are used to complete the ANOVA table\n\n\nFor the effects: \\[\n\\begin{align}\nA &= \\frac{-(1)+a-b+ab}{2r} \\\\\nB &= \\frac{-(1)-a+b+ab}{2r} \\\\\nAB &= \\frac{+(1)-a-b+ab}{2r}\n\\end{align}\n\\]\n\nFor quadratic sums: \\[\n\\begin{align}\nSS_A &=& \\frac{(-(1)+a-b+ab)^2}{4r} \\\\\nSS_B &=& \\frac{(-(1)-a+b+ab)^2}{4r} \\\\\nSS_{AB} &=& \\frac{(+(1)-a-b+ab)^2}{4r}\n\\end{align}\n\\]\n\nIn general: \\(\\mathrm{E}(X) = \\frac{2}{2^rn}\\mathrm{Contrast}(X)\\) and \\(\\mathit{SS}(X) = \\frac{1}{2 ^rn}\\mathrm{Contrast}(X)^2\\) where the contrast of the factor \\(\\mathrm{Contrast}(X)\\) is calculated using the signs of the relevant column \\(X\\) for the treatments in the order of Yates (e.g. \\(\\mathrm{Contrast}(AB)=+(1)-a-b+ab\\))"
+  },
+  {
+    "objectID": "5-DoE.html#n-factorial-plan-statistical-model",
+    "href": "5-DoE.html#n-factorial-plan-statistical-model",
+    "title": "Design of Experiments",
+    "section": "\\(2^n\\) factorial plan: statistical model",
+    "text": "\\(2^n\\) factorial plan: statistical model\nThe statistical model of a \\(2^n\\) factorial plan is obviously a first-order linear model in all factors. For \\(n=2\\), for example:\n\\[\ny_{ijk} = \\mu + \\alpha_{i} + \\beta_{j} + (\\alpha\\beta)_{ij}+\\varepsilon_{ijk}\n\\] For \\(n=3\\): \\[\ny_{ijkl} = \\mu + \\alpha_{i} + \\beta_{j} + (\\alpha\\beta)_{ij}+ \\gamma_k + (\\alpha\\gamma)_{ik} + (\\beta\\gamma )_{jk} + (\\alpha\\beta\\gamma)_{ijk} + \\varepsilon_{ijkl}\n\\] and so on.\nIn R we will see that these models can be abbreviated as Y~A*B and Y~A*B*C respectively and used to calculate the ANOVA table\n\n\nExercise: derive the regression models corresponding to the two statistical models reported above"
+  },
+  {
+    "objectID": "5-DoE.html#unreplicated-factorial-designs",
+    "href": "5-DoE.html#unreplicated-factorial-designs",
+    "title": "Design of Experiments",
+    "section": "Unreplicated factorial designs",
+    "text": "Unreplicated factorial designs\nAs the number of factors increases, the number of individual tests may become unsustainable\nThe simplest way to reduce the number of tests is to avoid repetitions for various treatments\nIf a treatment is not repeated, however, it is not possible to calculate the \\(SS_E\\) and therefore the ANOVA table cannot be completed with the \\(F_0\\) and the p-values\nThe solution was proposed by C. Daniel and is based on the hypothesis that at least one of the factors or interactions is not significant\nThis assumption is usually reasonable for more complex processes with large \\(n\\), precisely the cases where it is particularly important to reduce the number of tests\nThe idea is that non-significant effects are statistics calculated on different sub-samples of the same homogeneous sample, and therefore are normally distributed. Only the significant effects deviate from the normal distribution of the others"
+  },
+  {
+    "objectID": "5-DoE.html#daniels-method",
+    "href": "5-DoE.html#daniels-method",
+    "title": "Design of Experiments",
+    "section": "Daniel’s method",
+    "text": "Daniel’s method\n\n\nWhich effects are probably significant can therefore be determined with a quantile-quantile graph of them\nThe graph is a first screening which must be conservative: it only serves to remove effects that are certainly not significant (i.e. very aligned with the diagonal) and allow the execution of the ANOVA\nThe ANOVA table must however be calculated on a reduced linear statistical model, in order to confirm the result of the graphic method or to remove further effects that are actually non-significant"
+  },
+  {
+    "objectID": "5-DoE.html#daniels-method-1",
+    "href": "5-DoE.html#daniels-method-1",
+    "title": "Design of Experiments",
+    "section": "Daniel’s method",
+    "text": "Daniel’s method\n\n\nIn this case only the effects \\(A, C, D\\) and the interactions \\(AC\\) and \\(AD\\) are non-normal\nThe linear statistical model can then be reviewed as\n\\[\n\\begin{align}\ny_{ijkl} =& \\mu + \\alpha_{i} + \\gamma_{j} + (\\alpha\\gamma)_{ij}+ \\\\\n&+\\delta_k + (\\alpha\\delta)_{ik} + \\varepsilon_{ijkl}\n\\end{align}\n\\] That is, we can already rule out that \\(B\\) is in fact a factor. In this way, instead of an unreplicated \\(2^4\\) factorial plan we are dealing with a twice replicated \\(2^3\\) (i.e. \\(2\\cdot 2^3\\)), for which we can perform a normal ANOVA analysis"
+  },
+  {
+    "objectID": "5-DoE.html#example-1",
+    "href": "5-DoE.html#example-1",
+    "title": "Design of Experiments",
+    "section": "Example",
+    "text": "Example\n\n\nLet’s consider the data represented in this graph\nIt doesn’t matter where the data comes from: let’s just build a linear model of the data\n\\[ y_{ij} = \\mu + x_i + \\varepsilon_{ij}\\]\nNotice how the residuals do not look normal and that there are some obvious patterns\n\n\nDataResid. vs. xResid. vs. \\(\\hat y\\)Q-Q"
+  },
+  {
+    "objectID": "5-DoE.html#example-2",
+    "href": "5-DoE.html#example-2",
+    "title": "Design of Experiments",
+    "section": "Example",
+    "text": "Example\n\n\nIf we observe from the boxplot that the yield tends to increase more than linearly with \\(x\\), we can think of reformulating the model by transforming it through a squaring:\n\\[ y_{ij} = (\\mu + x_i + \\varepsilon_{ij})^2\\] The model no longer seems linear, but considering it can be rewritten as\n\\[ \\sqrt{y_{ij}} = \\mu + x_i + \\varepsilon_{ij}\\]\nit is clear that it is still a linear model in the coefficients.\n\n\nResiduals vs. xResiduals vs. \\(\\hat y\\)Q-Q\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nFollowing this transformation it is therefore clear that the new model is more adequate, with pattern-free residuals and more compatible with a normal distribution"
+  },
+  {
+    "objectID": "5-DoE.html#box-cox-transformations",
+    "href": "5-DoE.html#box-cox-transformations",
+    "title": "Design of Experiments",
+    "section": "Box-Cox transformations",
+    "text": "Box-Cox transformations\nBox and Cox proposed a method to identify the best transformation in the family of power transformations \\(y^* = y^\\lambda\\), with \\(y^*=\\ln(y)\\) when \\(\\lambda=0\\)\nWe calculate a graph of the logarithmic likelihood \\(\\mathcal{L}\\) (log-likelyhood) of the following \\(y^{(\\lambda)}\\):\n\\[\ny_i^{(\\lambda)} =\n\\begin{cases}\n\\frac{y_i^\\lambda-1}{\\lambda\\dot y^{\\lambda-1}} & \\lambda\\neq 0 \\\\\n\\dot y \\ln y_i & \\lambda = 0\n\\end{cases}, ~~~ \\dot y = \\exp\\left[(1/n)\\sum \\ln y_i\\right],~i=1, 2,\\dots,n\n\\] The likelihood \\(\\ln\\mathcal{L}(\\lambda|y)\\) is nothing more than the probability of extracting a sample \\(y\\) given a certain parameter \\(\\lambda\\). Its maximum coincides with the value of \\(\\lambda\\) which makes the sample \\(y\\) more normal."
+  },
+  {
+    "objectID": "5-DoE.html#box-cox-diagram",
+    "href": "5-DoE.html#box-cox-diagram",
+    "title": "Design of Experiments",
+    "section": "Box-Cox diagram",
+    "text": "Box-Cox diagram\n\n\nThe Box-Cox diagram also identifies an interval corresponding to a variation of less than 95%.\nAny value of \\(\\lambda\\) within this range is statistically equivalent\nYou then choose the value included in the range, which represents a “convenient” transformation\nFor example, if the optimal \\(\\lambda\\) was 0.58, we would still choose \\(\\lambda=0.5\\), which corresponds to the transformation \\(y^*=\\sqrt{y}\\)\n\n\n\n\n\n\n\n\n\n\n\n\n\nWhenever a linear model is suspicious (in a regression or in factorial design analysis) it is a good idea to try a Box-Cox transformation. In FPs, sometimes the Box-Cox transformation can simplify the model (i.e. reduce the number of significant factors or interactions)"
+  },
+  {
+    "objectID": "5-DoE.html#central-composite-design-ccd",
+    "href": "5-DoE.html#central-composite-design-ccd",
+    "title": "Design of Experiments",
+    "section": "Central Composite Design (CCD)",
+    "text": "Central Composite Design (CCD)\n\n\nIt would be automatic to extend a FP from \\(2^2\\) to \\(2^3\\) to evaluate quadratic effects\nIn this way, however, the sensitivity in the axial directions would be lower than the sensitivity in the diagonal directions, the evaluation interval being smaller in the first case\nIt is therefore preferable to perform centered FPs with rotational symmetry around the origin\nBy two factors, the axial points are extended a distance \\(\\sqrt{2}\\) from the origin; in the generic \\(n\\)-dimensional case the distance is \\((2^k)^{1/4}\\)\n\n\nTwo factorsThree factors"
+  },
+  {
+    "objectID": "5-DoE.html#fractional-factor-plans-ffp",
+    "href": "5-DoE.html#fractional-factor-plans-ffp",
+    "title": "Design of Experiments",
+    "section": "Fractional Factor Plans (FFP)",
+    "text": "Fractional Factor Plans (FFP)\n\n\nSuppose we consider only the opposite vertices of the FP in the figure: \\((1), ab, ac, bc\\)\nWe are considering half of the original FP, which however includes all levels of the three factors\nSplitting certainly reduces the completeness of the model, but it saves a lot of testing\n\nHow to choose fractions for larger dimensions?\nWhat information do we lose?"
+  },
+  {
+    "objectID": "5-DoE.html#choosing-fractions-defining-relationships",
+    "href": "5-DoE.html#choosing-fractions-defining-relationships",
+    "title": "Design of Experiments",
+    "section": "Choosing fractions: defining relationships",
+    "text": "Choosing fractions: defining relationships\n\n\nLooking at the effects matrix, we observe that the treatments \\((1), ab, ac, bc\\) correspond to the rows for which the relation \\(I=-ABC\\) holds. The other complementary half instead corresponds to \\(I=ABC\\)\nThese relations are called defining relationships because they define the FFP. It makes no difference whether you choose the positive or the negative half\n\n\n\n\n\n\ntreatment\nI\nA\nB\nAB\nC\nAC\nBC\nABC\n\n\n\n\n(1)\n+\n-\n-\n+\n-\n+\n+\n-\n\n\na\n+\n+\n-\n-\n-\n-\n+\n+\n\n\nb\n+\n-\n+\n-\n-\n+\n-\n+\n\n\nab\n+\n+\n+\n+\n-\n-\n-\n-\n\n\nc\n+\n-\n-\n+\n+\n-\n-\n+\n\n\nac\n+\n+\n-\n-\n+\n+\n-\n-\n\n\nbc\n+\n-\n+\n-\n+\n-\n+\n-\n\n\nabc\n+\n+\n+\n+\n+\n+\n+\n+\n\n\n\n\n\n\n\n\nThe effects matrix for a fractional FP \\(2^{n-1}\\) plus the defining relationship uniquely identify a fractional factorial plan"
+  },
+  {
+    "objectID": "5-DoE.html#alias-and-information-loss",
+    "href": "5-DoE.html#alias-and-information-loss",
+    "title": "Design of Experiments",
+    "section": "Alias and information loss",
+    "text": "Alias and information loss\nIn a fractional FP \\(2^{3-1}\\) with defining relationship \\(I=ABC\\), we consider these effects: \\[\n\\begin{align}\nA &= (-(1)+a-b+ab-c+ac-bc+abc)/(2r) \\\\\nBC &= (\\underline{+(1)}+a-b\\underline{-ab}-c\\underline{-ac} \\underline{+bc}+abc)/(2r)\n\\end{align}\n\\] Since the underlined treatments are not tested, the \\(A\\) effect is indistinguishable from the \\(BC\\) effect\nIt is said that \\(A\\) is aliased with \\(BC\\)\nGiven a certain defining relation, the possible alias structures can be obtained from the relation itself using a dedicated algebra: \\(I\\cdot X=X\\), \\(X\\cdot X = X\\), \\(X\\cdot Y =XY\\)\nTherefore, it results in \\(A\\cdot I=A\\cdot ABC\\) i.e. \\(A=BC\\), and similarly \\(B=AC\\) and \\(C=AB\\)"
+  },
+  {
+    "objectID": "5-DoE.html#alias-and-information-loss-1",
+    "href": "5-DoE.html#alias-and-information-loss-1",
+    "title": "Design of Experiments",
+    "section": "Alias and information loss",
+    "text": "Alias and information loss\nTherefore, by splitting a FP you lose information: you lose the ability to discriminate between aliased effects. It is clear that the longer the defining relationship, the higher the degree of alias interactions with the direct effects will be (e.g. \\(A=BCDEF\\))\nBy virtue of the principle of sparsity of effects, however, this loss of information is not dramatic. The principle says that in a process the significance of high-level interactions is gradually less likely as the number of factors that compose them increases\nConsequently, an alias \\(A=BCDEF\\) can be neglected by assuming the significance of \\(A\\) rather than that of \\(BCDEF\\) by virtue of said Principle"
+  },
+  {
+    "objectID": "5-DoE.html#fractional-fp-of-type-2n-p",
+    "href": "5-DoE.html#fractional-fp-of-type-2n-p",
+    "title": "Design of Experiments",
+    "section": "Fractional FP of type \\(2^{n-p}\\)",
+    "text": "Fractional FP of type \\(2^{n-p}\\)\nIt is possible to split a plan more than once, reducing the number of treatments to \\(2^{n-p}\\)\nFor each fraction it is necessary to choose a new defining relationship\nFor example, for \\(2^{7-2}\\) you can choose the DRs \\(I=ABCDE\\) and \\(I=CDEFG\\)\nFor these two DRs there is a third, dependent one: \\(I=ABFG\\). Any two of these three DRs are equivalent\nMinimum aberration design\n\nAll possible \\(p\\)-tuples of defining relations are generated, completing them with the dependent one\nCount the number of letters in the \\((p+1)\\)-tuples (previous example: \\(\\left&lt;5,5,4\\right&gt;\\))\nthe design that minimizes the number of strings with minimum length is preferable because it has fewer aliases"
+  },
+  {
+    "objectID": "5-DoE.html#minimum-aberration-design-example",
+    "href": "5-DoE.html#minimum-aberration-design-example",
+    "title": "Design of Experiments",
+    "section": "Minimum Aberration Design (example)",
+    "text": "Minimum Aberration Design (example)\n\n\nCompare these \\(2^{7-2}_{IV}\\) designs:\n\nDesign A\n\n\\(I = ABCF = BCDG~(= ADFG)\\);\n\nDesign B\n\n\\(I = ABCF = ADEG~(= BCDEFG)\\);\n\nDesign C\n\n\\(I=ABCDF=ABDEG~(=CEFG)\\)\n\n\nCarefully select the defining relations!\n\n\n2nd level aliases:\n\n\nDesign A\nDesign B\nDesign C\n\n\n\n\n\\(AB=CF\\)\n\\(AB=CF\\)\n\\(CE=FG\\)\n\n\n\\(AC=BF\\)\n\\(AC=BF\\)\n\\(CF=EG\\)\n\n\n\\(AD=FG\\)\n\\(AD=EG\\)\n\\(CG=EF\\)\n\n\n\\(AG=DF\\)\n\\(AE=DG\\)\n\n\n\n\\(BD=CG\\)\n\\(AF=BC\\)\n\n\n\n\\(BG=CD\\)\n\\(AG=DE\\)\n\n\n\n\\(AF=BC=DG\\)"
+  },
+  {
+    "objectID": "5-DoE.html#to-make-a-good-fp",
+    "href": "5-DoE.html#to-make-a-good-fp",
+    "title": "Design of Experiments",
+    "section": "To make a good FP",
+    "text": "To make a good FP\n\nStart with \\(2^n\\) and then increase it\nEvaluate the opportunity for splitting and carefully choose the defining relationships\nalways perform the model fit check and refine the statistical model accordingly\nDiscuss interactions and effects only after refining the model\nEvaluate the effects of alias\n\nAdvanced themes\n\nBlocking\nMinimum Aberration Design\nModel transformations and Box-Cox transformations"
+  }
+]
