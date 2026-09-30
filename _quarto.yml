@@ -15,7 +15,7 @@ format:
     preview-links: auto
     theme: [default, slides.scss]
     chalkboard: true
-    footer: "paolo.bosetti@unitn.it --- [https://paolobosetti.quarto.pub/DESANED](https://paolobosetti.quarto.pub/DESANED)"
+    footer: "paolo.bosetti@unitn.it --- [https://paolpbosetti.github.io/DESANED](https://paolpbosetti.github.io/DESANED)"
     fig-width: 5
     fig-height: 4
     fig-dpi: 300
